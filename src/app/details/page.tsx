@@ -20,23 +20,24 @@ export default function DetailsPage() {
         <RevealObserver />
         <ContentGuard />
         <main
-          className="min-h-screen w-full flex justify-center items-center overflow-x-hidden"
+          // Pinned to the screen edges rather than sized with vh/dvh: iOS Safari's floating toolbars make dvh shorter
+          // than the visible area, which left a dark band under the invitation
           style={{
-            minHeight: "100vh",
-            width: "100%",
+            position: "fixed",
+            inset: 0,
             display: "flex",
             justifyContent: "center",
-            alignItems: "center",
+            overflow: "hidden",
             backgroundColor: "#121212",
           }}
         >
-          {/* Centered Mobile Container: fills the phone width (up to 440px, iPhone 16 Pro Max) and the full viewport height */}
+          {/* Centered Mobile Container: fills the phone width (up to 440px, iPhone 16 Pro Max) and the full screen height */}
           <div
             style={{
               position: "relative",
               width: "100%",
               maxWidth: "440px",
-              height: "100dvh",
+              height: "100%",
               backgroundColor: "#060e0a",
               boxShadow: "0 0 50px rgba(0,0,0,0.9)",
               overflow: "hidden",

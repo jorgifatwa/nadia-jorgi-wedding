@@ -34,11 +34,15 @@ export const WeddingAudioProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    const audio = new Audio(encodeURI("/audio/Tems - Me & U (Acoustic Version) (320kbps).mp3"));
+    // The #t media fragment makes the very first play start at 0:11 even where the position can't be set before the
+    // file loads (iOS Safari ignores preload and resets currentTime set early)
+    const audio = new Audio(`${encodeURI("/audio/Tems - Me & U (Acoustic Version) (320kbps).mp3")}#t=${START_SECONDS}`);
     audio.preload = "auto";
     audioRef.current = audio;
 
     const updateTime = () => {
+      // Safety net: whatever reset the position, never play the intro
+      if (!audio.paused && audio.currentTime < START_SECONDS - 0.5) audio.currentTime = START_SECONDS;
       if (audio.duration && !isNaN(audio.duration)) {
         setDuration(audio.duration);
       }

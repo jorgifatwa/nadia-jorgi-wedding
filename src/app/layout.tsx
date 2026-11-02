@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 const TITLE = "The Wedding of Nadia & Jorgi";
@@ -36,6 +36,12 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
+};
+
+// Draw under the notch / home indicator and tint Safari's bars to match the invitation
+export const viewport: Viewport = {
+  viewportFit: "cover",
+  themeColor: "#060e0a",
 };
 
 export default function RootLayout({
