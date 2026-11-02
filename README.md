@@ -50,12 +50,18 @@ Setelah online:
 - Cek pratinjau link WhatsApp/Instagram di [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) (tombol *Scrape Again* juga menyegarkan cache pratinjau).
 - Link undangan di pesan WhatsApp selalu mengarah ke `https://nadia-jorgi-wedding.vercel.app` (atau `NEXT_PUBLIC_SITE_URL` jika diisi, mis. domain sendiri).
 
+## QR check-in di lokasi
+
+- **Tamu**: tombol **QR Check-in** di bawah hitung mundur. Dari link pribadi QR langsung tampil atas nama tamu; dari link grup tamu mengetik namanya sekali, QR tersimpan di HP-nya, dan namanya masuk daftar dengan asal "Link grup".
+- **Admin** (`/admin` → tab **Check-in**): atur PIN panitia (6 angka), salin link halaman penerima tamu, lihat siapa yang sudah datang, ekspor CSV.
+- **Panitia** (`/checkin` di HP, masuk dengan PIN): scan QR tamu dengan kamera, cari nama untuk tamu tanpa QR, atau tambah tamu yang belum ada di daftar. Bisa dipakai di beberapa HP sekaligus; mengganti PIN mengeluarkan semua HP panitia.
+
 ## Struktur singkat
 
 | Lokasi | Isi |
 | --- | --- |
 | `src/components/` | Section undangan (layout mengikuti kanvas 440px, lihat `canvasLayout.tsx`) |
-| `src/app/api/` | API ucapan (`/api/wishes`) dan admin (`/api/admin/*`) |
+| `src/app/api/` | API ucapan (`/api/wishes`), QR tamu (`/api/pass`), penerima tamu (`/api/checkin/*`) dan admin (`/api/admin/*`) |
 | `src/lib/` | Validasi ucapan, autentikasi admin, penyimpanan (Postgres / file JSON) |
 | `scripts/seed.mjs` | Seed tabel + akun admin (`pnpm db:seed`) |
 | `public/` | Aset gambar, font, audio, animasi |

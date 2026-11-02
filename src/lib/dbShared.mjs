@@ -24,6 +24,10 @@ create table if not exists guests (
   attendance text,
   responded_at timestamptz
 );
+-- QR check-in at the venue. source: 'admin' (added in the admin), 'self' (took a QR from a group link),
+-- 'desk' (added by the reception desk on the day)
+alter table guests add column if not exists source text not null default 'admin';
+alter table guests add column if not exists checked_in_at timestamptz;
 
 create table if not exists settings (
   key text primary key,

@@ -4,8 +4,11 @@ import { readJson, updateJson } from "./jsonStore";
 import { getDb, toIso } from "./db";
 import type { Attendance } from "./wishValidation";
 
-// Invitation guest list and the WhatsApp message settings. Postgres tables `guests` (insertion order) and `settings`
+// Invitation guest list (with the QR check-in at the venue) and the WhatsApp message settings. Postgres tables `guests` (insertion order) and `settings`
 // (JSON value under the "invite" key); locally without a database: data/guests.json and data/settings.json.
+
+// Where a guest entry came from: added in the admin, took a check-in QR from a group link, or added at the desk
+export type GuestSource = "admin" | "self" | "desk";
 
 export interface Guest {
   id: string;
@@ -16,6 +19,9 @@ export interface Guest {
   // Set when the guest sends a wish from their personal link
   attendance?: Attendance | null;
   respondedAt?: string | null;
+  // Missing on entries saved before the check-in existed (= "admin")
+  source?: GuestSource;
+  checkedInAt?: string | null;
 }
 
 export interface InviteSettings {
@@ -59,6 +65,8 @@ interface GuestRow {
   sent_at: Date | null;
   attendance: Attendance | null;
   responded_at: Date | null;
+  source: GuestSource;
+  checked_in_at: Date | null;
 }
 
 const fromRow = (row: GuestRow): Guest => ({
@@ -69,6 +77,8 @@ const fromRow = (row: GuestRow): Guest => ({
   sentAt: toIso(row.sent_at),
   attendance: row.attendance,
   respondedAt: toIso(row.responded_at),
+  source: row.source,
+  checkedInAt: toIso(row.checked_in_at),
 });
 
 export const listGuests = async (): Promise<Guest[]> => {
@@ -86,15 +96,27 @@ export const getGuest = async (id: string): Promise<Guest | null> => {
   return (await readJson<Guest[]>(GUESTS, [])).find((guest) => guest.id === id) ?? null;
 };
 
-export const addGuests = async (entries: { name: string; phone: string | null }[]): Promise<Guest[]> => {
+export const addGuests = async (
+  entries: { name: string; phone: string | null }[],
+  { source = "admin", checkedIn = false }: { source?: GuestSource; checkedIn?: boolean } = {},
+): Promise<Guest[]> => {
   const now = new Date().toISOString();
-  const added: Guest[] = entries.map((entry) => ({ id: randomUUID(), name: entry.name, phone: entry.phone, createdAt: now, sentAt: null }));
+  const added: Guest[] = entries.map((entry) => ({
+    id: randomUUID(),
+    name: entry.name,
+    phone: entry.phone,
+    createdAt: now,
+    sentAt: null,
+    source,
+    checkedInAt: checkedIn ? now : null,
+  }));
   const sql = await getDb();
   if (sql) {
     if (added.length === 0) return [];
     // One multi-row insert; the identity column keeps the list order
+    const values = added.map(({ id, name, phone, checkedInAt }) => ({ id, name, phone, source, checked_in_at: checkedInAt }));
     const rows = await sql<GuestRow[]>`
-      insert into guests ${sql(added.map(({ id, name, phone }) => ({ id, name, phone })), "id", "name", "phone")}
+      insert into guests ${sql(values, "id", "name", "phone", "source", "checked_in_at")}
       returning *
     `;
     return rows.map(fromRow);
@@ -102,7 +124,7 @@ export const addGuests = async (entries: { name: string; phone: string | null }[
   return updateJson<Guest[], Guest[]>(GUESTS, [], (guests) => ({ data: [...guests, ...added], result: added }));
 };
 
-type GuestChanges = Partial<Pick<Guest, "name" | "phone" | "sentAt" | "attendance" | "respondedAt">>;
+type GuestChanges = Partial<Pick<Guest, "name" | "phone" | "sentAt" | "attendance" | "respondedAt" | "checkedInAt">>;
 
 const COLUMNS: Record<keyof GuestChanges, string> = {
   name: "name",
@@ -110,6 +132,7 @@ const COLUMNS: Record<keyof GuestChanges, string> = {
   sentAt: "sent_at",
   attendance: "attendance",
   respondedAt: "responded_at",
+  checkedInAt: "checked_in_at",
 };
 
 export const updateGuest = async (id: string, changes: GuestChanges): Promise<Guest | null> => {
@@ -127,6 +150,24 @@ export const updateGuest = async (id: string, changes: GuestChanges): Promise<Gu
     if (!current) return { data: guests, result: null };
     const updated = { ...current, ...changes };
     return { data: guests.map((guest) => (guest.id === id ? updated : guest)), result: updated };
+  });
+};
+
+// Checks a guest in once: the first scan sets the time, later scans report the time already set (`already`)
+export const checkInGuest = async (id: string): Promise<{ guest: Guest; already: boolean } | null> => {
+  const sql = await getDb();
+  if (sql) {
+    const [row] = await sql<GuestRow[]>`update guests set checked_in_at = now() where id = ${id} and checked_in_at is null returning *`;
+    if (row) return { guest: fromRow(row), already: false };
+    const guest = await getGuest(id);
+    return guest ? { guest, already: true } : null;
+  }
+  return updateJson<Guest[], { guest: Guest; already: boolean } | null>(GUESTS, [], (guests) => {
+    const current = guests.find((guest) => guest.id === id);
+    if (!current) return { data: guests, result: null };
+    if (current.checkedInAt) return { data: guests, result: { guest: current, already: true } };
+    const updated = { ...current, checkedInAt: new Date().toISOString() };
+    return { data: guests.map((guest) => (guest.id === id ? updated : guest)), result: { guest: updated, already: false } };
   });
 };
 

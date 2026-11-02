@@ -1,0 +1,488 @@
+"use client";
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+// Reception desk on the wedding day, on the committee's phones: log in with the shared PIN, scan guests' QR codes (or
+// find them by name), add guests who are not on the list. Several phones can work at once; the list refreshes itself.
+
+type Source = "admin" | "self" | "desk";
+
+interface DeskGuest {
+  id: string;
+  name: string;
+  source: Source;
+  checkedInAt: string | null;
+}
+
+interface Result {
+  kind: "ok" | "already" | "error";
+  title: string;
+  detail?: string;
+  guest?: DeskGuest;
+}
+
+const REFRESH_MS = 10_000;
+const SEARCH_LIMIT = 40;
+// The same QR held in front of the camera is read again only after this long
+const RESCAN_MS = 4000;
+
+const api = async <T,>(url: string, init?: RequestInit): Promise<T> => {
+  const res = await fetch(url, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error ?? "Terjadi kesalahan."), { status: res.status });
+  return data as T;
+};
+
+const formatTime = (iso: string) => new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+
+// The QR holds the guest's invitation link (…/?to=Name&g=<id>); a bare id works too
+const guestIdFromQr = (text: string) => {
+  try {
+    const id = new URL(text).searchParams.get("g");
+    if (id) return id;
+  } catch {}
+  return /^[0-9a-f-]{36}$/i.test(text.trim()) ? text.trim() : null;
+};
+
+const SOURCE_LABEL: Record<Source, string | null> = { admin: null, self: "Link grup", desk: "Ditambah di lokasi" };
+
+const Spinner: React.FC<{ className?: string }> = ({ className = "h-4 w-4" }) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={`animate-spin ${className}`}>
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
+
+const PinScreen: React.FC<{ pinSet: boolean; onLoggedIn: () => void }> = ({ pinSet, onLoggedIn }) => {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (value: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/checkin/session", { method: "POST", body: JSON.stringify({ pin: value }) });
+      onLoggedIn();
+    } catch (err) {
+      setError((err as Error).message);
+      setPin("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="admin-root flex min-h-dvh items-center justify-center bg-[#f6f3ee] px-4 font-sans text-[#1f2a22]">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (pin.length === 6) submit(pin);
+        }}
+        className="w-full max-w-sm rounded-2xl border border-[#e5dfd3] bg-white p-7 shadow-sm"
+      >
+        <div className="text-xs font-medium uppercase tracking-[0.2em] text-[#8a8374]">Penerima Tamu</div>
+        <h1 className="mt-1 text-2xl font-semibold">Nadia &amp; Jorgi</h1>
+        {!pinSet ? (
+          <p className="mt-6 rounded-lg bg-[#fff7e6] p-3 text-sm text-[#7a5a12]">
+            PIN panitia belum diatur. Minta admin mengatur PIN di halaman admin, tab Check-in.
+          </p>
+        ) : (
+          <>
+            <label htmlFor="desk-pin" className="mt-6 block text-sm font-medium text-[#3d463f]">
+              PIN panitia
+            </label>
+            <input
+              id="desk-pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              maxLength={6}
+              value={pin}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setPin(value);
+                if (value.length === 6) submit(value);
+              }}
+              className="mt-1.5 w-full rounded-lg border border-[#d9d2c5] px-3 py-3 text-center text-2xl tracking-[0.6em] outline-none focus:border-[#24412f]"
+            />
+            {error && <p className="mt-2 text-sm text-[#9b1c1c]">{error}</p>}
+            <button
+              type="submit"
+              disabled={busy || pin.length !== 6}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#24412f] py-3 text-base font-medium text-white disabled:opacity-50"
+            >
+              {busy && <Spinner />}
+              {busy ? "Memeriksa..." : "Masuk"}
+            </button>
+          </>
+        )}
+      </form>
+    </div>
+  );
+};
+
+// Camera preview that reads QR codes; calls onCode for each new code (the same code again only after RESCAN_MS)
+const Scanner: React.FC<{ onCode: (text: string) => void; onStop: () => void }> = ({ onCode, onStop }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const onCodeRef = useRef(onCode);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    onCodeRef.current = onCode;
+  }, [onCode]);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    let frame = 0;
+    let stopped = false;
+    const last = { text: "", at: 0 };
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+    const start = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError("Browser ini tidak bisa membuka kamera. Gunakan Chrome atau Safari, atau cari nama tamu di bawah.");
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      } catch (err) {
+        const denied = (err as DOMException).name === "NotAllowedError";
+        setError(
+          denied
+            ? "Izin kamera ditolak. Izinkan kamera untuk situs ini di pengaturan browser, atau cari nama tamu di bawah."
+            : "Kamera tidak bisa dibuka. Coba tutup aplikasi lain yang memakai kamera, atau cari nama tamu di bawah.",
+        );
+        return;
+      }
+      if (stopped) return stream.getTracks().forEach((track) => track.stop());
+      const video = videoRef.current!;
+      video.srcObject = stream;
+      await video.play().catch(() => {});
+      const { default: jsQR } = await import("jsqr");
+
+      let lastScan = 0;
+      const scan = (time: number) => {
+        if (stopped) return;
+        frame = requestAnimationFrame(scan);
+        if (time - lastScan < 120 || video.readyState < 2 || !ctx) return;
+        lastScan = time;
+        // Decode a downscaled frame: plenty for a QR held up to the phone, and fast on older phones
+        const scale = Math.min(1, 640 / video.videoWidth);
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, {
+          inversionAttempts: "dontInvert",
+        });
+        if (!code?.data) return;
+        const now = Date.now();
+        if (code.data === last.text && now - last.at < RESCAN_MS) return;
+        last.text = code.data;
+        last.at = now;
+        onCodeRef.current(code.data);
+      };
+      frame = requestAnimationFrame(scan);
+    };
+    start();
+
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(frame);
+      stream?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-black">
+      {error ? (
+        <p className="p-5 text-sm leading-relaxed text-[#f5e6d8]">{error}</p>
+      ) : (
+        <>
+          <video ref={videoRef} playsInline muted className="aspect-square w-full object-cover" />
+          {/* Aiming frame */}
+          <div className="pointer-events-none absolute inset-[16%] rounded-2xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+        </>
+      )}
+      <button
+        type="button"
+        onClick={onStop}
+        className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white"
+      >
+        Tutup kamera
+      </button>
+    </div>
+  );
+};
+
+const ResultCard: React.FC<{ result: Result; onUndo: (guest: DeskGuest) => void; onDismiss: () => void }> = ({ result, onUndo, onDismiss }) => {
+  const tone = {
+    ok: "border-[#9fd4b0] bg-[#e6f4ea] text-[#1f6b3a]",
+    already: "border-[#f0d58c] bg-[#fdf6e3] text-[#7a5a12]",
+    error: "border-[#f0c9c9] bg-[#fdf1f1] text-[#9b1c1c]",
+  }[result.kind];
+  const icon = { ok: "✓", already: "!", error: "✕" }[result.kind];
+  return (
+    <div role="status" className={`flex items-start gap-3 rounded-2xl border p-4 ${tone}`}>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/70 text-lg font-bold">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-base font-semibold leading-snug">{result.title}</p>
+        {result.detail && <p className="mt-0.5 text-sm opacity-90">{result.detail}</p>}
+        {result.kind === "ok" && result.guest && (
+          <button type="button" onClick={() => onUndo(result.guest!)} className="mt-2 text-xs font-medium underline underline-offset-2">
+            Salah tamu? Batalkan check-in
+          </button>
+        )}
+      </div>
+      <button type="button" onClick={onDismiss} aria-label="Tutup" className="px-1 opacity-60">
+        ✕
+      </button>
+    </div>
+  );
+};
+
+const Desk: React.FC<{ onLoggedOut: () => void }> = ({ onLoggedOut }) => {
+  const [guests, setGuests] = useState<DeskGuest[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState<Result | null>(null);
+  const [query, setQuery] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const handleError = useCallback(
+    (err: unknown) => {
+      if ((err as { status?: number }).status === 401) onLoggedOut();
+      return (err as Error).message;
+    },
+    [onLoggedOut],
+  );
+
+  const load = useCallback(async () => {
+    try {
+      const data = await api<{ guests: DeskGuest[] }>("/api/checkin");
+      setGuests(data.guests);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(handleError(err));
+    } finally {
+      setLoaded(true);
+    }
+  }, [handleError]);
+
+  useEffect(() => {
+    const initial = setTimeout(load, 0);
+    const timer = setInterval(load, REFRESH_MS);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
+  }, [load]);
+
+  const remember = (guest: DeskGuest) =>
+    setGuests((prev) => (prev.some((g) => g.id === guest.id) ? prev.map((g) => (g.id === guest.id ? guest : g)) : [...prev, guest]));
+
+  const checkIn = async (body: { id: string } | { name: string }) => {
+    setBusyId("id" in body ? body.id : "new");
+    try {
+      const data = await api<{ guest: DeskGuest; already: boolean }>("/api/checkin", { method: "POST", body: JSON.stringify(body) });
+      remember(data.guest);
+      navigator.vibrate?.(data.already ? [70, 60, 70] : 70);
+      setResult(
+        data.already
+          ? { kind: "already", title: data.guest.name, detail: `Sudah check-in pukul ${formatTime(data.guest.checkedInAt!)}`, guest: data.guest }
+          : { kind: "ok", title: data.guest.name, detail: "Check-in berhasil. Selamat datang!", guest: data.guest },
+      );
+      if (!("id" in body)) setQuery("");
+    } catch (err) {
+      navigator.vibrate?.([120, 60, 120]);
+      setResult({ kind: "error", title: "Check-in gagal", detail: handleError(err) });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onCode = useCallback((text: string) => {
+    const id = guestIdFromQr(text);
+    if (id) checkIn({ id });
+    else setResult({ kind: "error", title: "Bukan QR undangan ini", detail: "Cari nama tamu secara manual di bawah." });
+    // checkIn only uses state setters and stable callbacks
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const undo = async (guest: DeskGuest) => {
+    try {
+      const data = await api<{ guest: DeskGuest }>(`/api/checkin?id=${encodeURIComponent(guest.id)}`, { method: "DELETE" });
+      remember(data.guest);
+      setResult({ kind: "already", title: guest.name, detail: "Check-in dibatalkan." });
+    } catch (err) {
+      setResult({ kind: "error", title: "Gagal membatalkan", detail: handleError(err) });
+    }
+  };
+
+  const logout = async () => {
+    await api("/api/checkin/session", { method: "DELETE" }).catch(() => {});
+    onLoggedOut();
+  };
+
+  const checkedIn = guests.filter((g) => g.checkedInAt).length;
+  const q = query.trim().toLowerCase();
+  const matches = useMemo(() => {
+    if (!q) return [];
+    return guests
+      .filter((g) => g.name.toLowerCase().includes(q))
+      .sort((a, b) => Number(!a.name.toLowerCase().startsWith(q)) - Number(!b.name.toLowerCase().startsWith(q)) || a.name.localeCompare(b.name))
+      .slice(0, SEARCH_LIMIT);
+  }, [guests, q]);
+  const exactMatch = guests.some((g) => g.name.toLowerCase() === q);
+
+  return (
+    <div className="admin-root min-h-dvh bg-[#f6f3ee] font-sans text-[#1f2a22]">
+      <header className="sticky top-0 z-10 border-b border-[#e5dfd3] bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#8a8374]">Penerima Tamu</div>
+            <div className="text-base font-semibold">Nadia &amp; Jorgi</div>
+          </div>
+          <div className="ml-auto text-right">
+            <div className="text-[11px] uppercase tracking-wider text-[#8a8374]">Sudah hadir</div>
+            <div className="text-lg font-semibold text-[#1f8f4e]" aria-live="polite">
+              {loaded ? (
+                <>
+                  {checkedIn}
+                  <span className="text-sm font-normal text-[#8a8374]"> / {guests.length} tamu</span>
+                </>
+              ) : (
+                <Spinner className="ml-auto h-4 w-4 text-[#8a8374]" />
+              )}
+            </div>
+          </div>
+          <button type="button" onClick={logout} className="ml-1 rounded-lg border border-[#d9d2c5] px-2.5 py-1.5 text-xs font-medium text-[#3d463f]">
+            Keluar
+          </button>
+        </div>
+      </header>
+
+      <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-4 pb-16">
+        {loadError && <p className="rounded-lg bg-[#fdf1f1] p-3 text-sm text-[#9b1c1c]">{loadError}</p>}
+
+        {scanning ? (
+          <Scanner onCode={onCode} onStop={() => setScanning(false)} />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setScanning(true)}
+            className="flex items-center justify-center gap-3 rounded-2xl bg-[#24412f] py-5 text-lg font-semibold text-white shadow-sm active:bg-[#1b3324]"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-6 w-6" aria-hidden="true">
+              <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10" />
+            </svg>
+            Scan QR Tamu
+          </button>
+        )}
+
+        {result && <ResultCard result={result} onUndo={undo} onDismiss={() => setResult(null)} />}
+
+        <div className="rounded-2xl border border-[#e5dfd3] bg-white p-4">
+          <label htmlFor="desk-search" className="text-sm font-semibold">
+            Tamu tanpa QR? Cari namanya
+          </label>
+          <input
+            id="desk-search"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Ketik nama tamu..."
+            autoComplete="off"
+            className="mt-2 w-full rounded-lg border border-[#d9d2c5] px-3 py-2.5 text-base outline-none focus:border-[#24412f]"
+          />
+          {q && (
+            <ul className="mt-2 divide-y divide-[#efe9de]">
+              {matches.map((guest) => (
+                <li key={guest.id} className="flex items-center gap-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{guest.name}</p>
+                    {SOURCE_LABEL[guest.source] && <p className="text-xs text-[#8a8374]">{SOURCE_LABEL[guest.source]}</p>}
+                  </div>
+                  {guest.checkedInAt ? (
+                    <span className="shrink-0 rounded-full bg-[#e6f4ea] px-2.5 py-1 text-xs font-medium text-[#1f6b3a]">
+                      ✓ {formatTime(guest.checkedInAt)}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => checkIn({ id: guest.id })}
+                      disabled={busyId !== null}
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#24412f] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      {busyId === guest.id && <Spinner className="h-3.5 w-3.5" />}
+                      Check-in
+                    </button>
+                  )}
+                </li>
+              ))}
+              {matches.length === 0 && <li className="py-3 text-sm text-[#8a8374]">Tidak ada tamu dengan nama itu.</li>}
+            </ul>
+          )}
+          {q.length >= 2 && !exactMatch && (
+            <button
+              type="button"
+              onClick={() => checkIn({ name: query })}
+              disabled={busyId !== null}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#24412f] px-3 py-2.5 text-sm font-medium text-[#24412f] disabled:opacity-50"
+            >
+              {busyId === "new" && <Spinner className="h-3.5 w-3.5" />}
+              Tambah &ldquo;{query.trim()}&rdquo; sebagai tamu baru &amp; check-in
+            </button>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default function CheckinPage() {
+  const [session, setSession] = useState<{ authenticated: boolean; pinSet: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const checkSession = useCallback(async () => {
+    try {
+      setSession(await api("/api/checkin/session"));
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }, []);
+
+  useEffect(() => {
+    const initial = setTimeout(checkSession, 0);
+    return () => clearTimeout(initial);
+  }, [checkSession]);
+
+  if (error && !session) {
+    return (
+      <div className="admin-root flex min-h-dvh items-center justify-center bg-[#f6f3ee] px-4 font-sans text-sm text-[#1f2a22]">
+        <div className="w-full max-w-sm rounded-2xl border border-[#f0c9c9] bg-white p-6">
+          <p className="font-semibold text-[#9b1c1c]">Server tidak dapat dihubungi</p>
+          <p className="mt-2">{error}</p>
+          <button type="button" onClick={checkSession} className="mt-4 rounded-lg border border-[#d9d2c5] px-3 py-2 font-medium">
+            Coba Lagi
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (!session) {
+    return (
+      <div className="admin-root flex min-h-dvh items-center justify-center bg-[#f6f3ee] font-sans text-sm text-[#5c6158]" role="status">
+        <span className="inline-flex items-center gap-3">
+          <Spinner className="h-5 w-5 text-[#24412f]" /> Memuat...
+        </span>
+      </div>
+    );
+  }
+  if (!session.authenticated) return <PinScreen pinSet={session.pinSet} onLoggedIn={checkSession} />;
+  return <Desk onLoggedOut={() => setSession((s) => (s ? { ...s, authenticated: false } : s))} />;
+}

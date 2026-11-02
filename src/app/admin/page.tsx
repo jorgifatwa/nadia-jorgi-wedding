@@ -23,13 +23,16 @@ interface Guest {
   sentAt: string | null;
   attendance?: Attendance | null;
   respondedAt?: string | null;
+  // Added in this admin, took a QR from a group link, or added at the reception desk; missing = "admin"
+  source?: "admin" | "self" | "desk";
+  checkedInAt?: string | null;
 }
 
 interface InviteSettings {
   template: string;
 }
 
-type Tab = "wishes" | "invites";
+type Tab = "wishes" | "invites" | "checkin";
 
 const api = async <T,>(url: string, init?: RequestInit): Promise<T> => {
   const res = await fetch(url, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
@@ -596,7 +599,8 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
         api<{ guests: Guest[] }>("/api/admin/guests"),
         api<{ settings: InviteSettings; defaultTemplate: string }>("/api/admin/settings"),
       ]);
-      setGuests(guestData.guests);
+      // Guests who took a QR from a group link or were added at the desk were never sent an invitation: Check-in tab
+      setGuests(guestData.guests.filter((guest) => (guest.source ?? "admin") === "admin"));
       setSettings(settingsData.settings);
       setDefaultTemplate(settingsData.defaultTemplate);
       setSettingsDirty(false);
@@ -947,6 +951,296 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   );
 };
 
+const SOURCE_LABELS = { admin: "Undangan pribadi", self: "Link grup", desk: "Ditambah di lokasi" } as const;
+
+// QR check-in at the venue: the desk PIN, the desk page link and who has arrived (all guests, whatever their source)
+const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
+  const confirm = useConfirm();
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [pinSet, setPinSet] = useState<boolean | null>(null);
+  const [pin, setPin] = useState("");
+  const [savingPin, setSavingPin] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "in" | "out">("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const handleError = useCallback(
+    (err: unknown) => {
+      if ((err as { status?: number }).status === 401) onAuthError();
+      else setNotice({ kind: "error", text: (err as Error).message });
+    },
+    [onAuthError],
+  );
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [guestData, pinData] = await Promise.all([
+        api<{ guests: Guest[] }>("/api/admin/guests"),
+        api<{ pinSet: boolean }>("/api/admin/checkin-pin"),
+      ]);
+      setGuests(guestData.guests);
+      setPinSet(pinData.pinSet);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  }, [handleError]);
+
+  useEffect(() => {
+    const initial = setTimeout(load, 0);
+    return () => clearTimeout(initial);
+  }, [load]);
+
+  const savePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPin(true);
+    try {
+      await api("/api/admin/checkin-pin", { method: "PUT", body: JSON.stringify({ pin }) });
+      setNotice({ kind: "success", text: pinSet ? "PIN panitia diganti. HP panitia perlu masuk lagi dengan PIN baru." : "PIN panitia disimpan." });
+      setPinSet(true);
+      setPin("");
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setSavingPin(false);
+    }
+  };
+
+  const setCheckedIn = async (guest: Guest, checkedIn: boolean) => {
+    setBusyId(guest.id);
+    try {
+      const data = checkedIn
+        ? await api<{ guest: Guest }>("/api/checkin", { method: "POST", body: JSON.stringify({ id: guest.id }) })
+        : await api<{ guest: Guest }>(`/api/checkin?id=${encodeURIComponent(guest.id)}`, { method: "DELETE" });
+      setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, checkedInAt: data.guest.checkedInAt } : g)));
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const remove = (guest: Guest) =>
+    confirm({
+      title: "Hapus tamu?",
+      message: (
+        <>
+          <span className="font-semibold text-[#1f2a22]">{guest.name}</span> akan dihapus dari daftar, dan QR-nya tidak bisa dipakai
+          check-in lagi.
+        </>
+      ),
+      confirmLabel: "Hapus Tamu",
+      busyLabel: "Menghapus...",
+      action: async () => {
+        try {
+          await api(`/api/admin/guests?id=${encodeURIComponent(guest.id)}`, { method: "DELETE" });
+          setGuests((prev) => prev.filter((g) => g.id !== guest.id));
+        } catch (err) {
+          handleError(err);
+        }
+      },
+    });
+
+  const deskUrl = `${SITE_URL}/checkin`;
+  const copyDeskUrl = async () => {
+    await navigator.clipboard.writeText(deskUrl);
+    setNotice({ kind: "success", text: "Link halaman penerima tamu disalin." });
+  };
+
+  // Arrived guests first, most recent on top; then the rest in list order
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return guests
+      .filter((g) => (filter === "all" || (filter === "in" ? g.checkedInAt : !g.checkedInAt)) && (!q || g.name.toLowerCase().includes(q)))
+      .sort((a, b) => (b.checkedInAt ?? "").localeCompare(a.checkedInAt ?? ""));
+  }, [guests, query, filter]);
+  const pagination = usePagination(visible);
+
+  const exportCsv = () => {
+    const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const rows = [
+      ["Nama", "Asal", "Check-in"],
+      ...visible.map((g) => [g.name, SOURCE_LABELS[g.source ?? "admin"], g.checkedInAt ? formatDate(g.checkedInAt) : "-"]),
+    ];
+    const blob = new Blob(["\ufeff" + rows.map((row) => row.map(escape).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "check-in-nadia-jorgi.csv";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const checkedIn = guests.filter((g) => g.checkedInAt).length;
+
+  return (
+    <div>
+      <div className="grid grid-cols-4 gap-4">
+        <StatCard label="Total Tamu" value={guests.length} loading={!loaded} />
+        <StatCard label="Sudah Check-in" value={checkedIn} loading={!loaded} tone="text-[#1f8f4e]" />
+        <StatCard label="Dari Link Grup" value={guests.filter((g) => g.source === "self").length} loading={!loaded} tone="text-[#3d5a80]" />
+        <StatCard label="Ditambah di Lokasi" value={guests.filter((g) => g.source === "desk").length} loading={!loaded} tone="text-[#a06a12]" />
+      </div>
+
+      {notice && (
+        <div
+          className={`mt-4 flex items-start justify-between rounded-lg p-3 text-sm ${
+            notice.kind === "error" ? "bg-[#fdf1f1] text-[#9b1c1c]" : "bg-[#e9f5ec] text-[#1f6b3a]"
+          }`}
+        >
+          {notice.text}
+          <button onClick={() => setNotice(null)} className="ml-4 opacity-60 hover:opacity-100" aria-label="Tutup">
+            ✕
+          </button>
+        </div>
+      )}
+
+      <div className="mt-6 grid grid-cols-[1fr_380px] gap-6">
+        <div>
+          <div className="flex items-center gap-3">
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                pagination.setPage(1);
+              }}
+              placeholder="Cari nama..."
+              className="w-72 rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]"
+            />
+            <select
+              value={filter}
+              onChange={(e) => {
+                setFilter(e.target.value as typeof filter);
+                pagination.setPage(1);
+              }}
+              className="rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]"
+            >
+              <option value="all">Semua tamu</option>
+              <option value="in">Sudah check-in</option>
+              <option value="out">Belum check-in</option>
+            </select>
+            <div className="ml-auto flex gap-2">
+              <Button onClick={exportCsv} disabled={visible.length === 0}>
+                Ekspor CSV
+              </Button>
+              <Button onClick={load} disabled={loading}>
+                {loading && <Spinner />}
+                {loading ? "Memuat..." : "Muat Ulang"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-3 overflow-hidden rounded-xl border border-[#e5dfd3] bg-white">
+            <table className={`w-full text-left text-sm transition-opacity ${loading && loaded ? "opacity-50" : ""}`} aria-busy={loading}>
+              {loading && loaded && <LoadingCaption />}
+              <thead className="bg-[#faf8f4] text-xs uppercase tracking-wider text-[#8a8374]">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Nama</th>
+                  <th className="w-44 px-4 py-3 font-medium">Asal</th>
+                  <th className="w-44 px-4 py-3 font-medium">Check-in</th>
+                  <th className="w-[200px] px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
+                {!loaded && <SkeletonRows columns={["w-36", "w-24", "w-24", "ml-auto w-32"]} />}
+                {pagination.pageItems.map((guest) => (
+                  <tr key={guest.id}>
+                    <td className="px-4 py-3 font-medium">{guest.name}</td>
+                    <td className="px-4 py-3 text-[#3d463f]">{SOURCE_LABELS[guest.source ?? "admin"]}</td>
+                    <td className="px-4 py-3">
+                      {guest.checkedInAt ? (
+                        <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 text-xs font-medium text-[#1f6b3a]">{formatDate(guest.checkedInAt)}</span>
+                      ) : (
+                        <span className="text-xs text-[#b3ab9c]">Belum datang</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          onClick={() => setCheckedIn(guest, !guest.checkedInAt)}
+                          disabled={busyId === guest.id}
+                          variant={guest.checkedInAt ? "secondary" : "primary"}
+                          className="px-2.5 py-1.5 text-xs"
+                        >
+                          {guest.checkedInAt ? "Batalkan" : "Check-in"}
+                        </Button>
+                        {(guest.source ?? "admin") !== "admin" && (
+                          <Button variant="danger" onClick={() => remove(guest)} className="px-2.5 py-1.5 text-xs">
+                            Hapus
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {loaded && !loading && visible.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-12 text-center text-[#8a8374]">
+                      {guests.length === 0 ? "Belum ada tamu." : "Tidak ada tamu yang cocok."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {loaded && <Pagination {...pagination} />}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="rounded-xl border border-[#e5dfd3] bg-white p-5">
+            <h2 className="text-base font-semibold text-[#1f2a22]">Halaman Penerima Tamu</h2>
+            <p className="mt-1 text-xs leading-relaxed text-[#8a8374]">
+              Buka link ini di HP panitia pada hari acara, lalu masuk dengan PIN di bawah. Panitia bisa scan QR tamu, mencari nama tamu,
+              dan menambah tamu yang belum ada di daftar.
+            </p>
+            <div className="mt-3 truncate rounded-lg bg-[#faf8f4] px-3 py-2 font-mono text-sm text-[#24412f]">{deskUrl}</div>
+            <div className="mt-2 flex gap-2">
+              <Button onClick={copyDeskUrl}>Salin Link</Button>
+              <a
+                href="/checkin"
+                target="_blank"
+                className="inline-flex items-center rounded-lg px-3.5 py-2 text-sm font-medium text-[#24412f] underline-offset-4 hover:underline"
+              >
+                Buka ↗
+              </a>
+            </div>
+          </div>
+
+          <form onSubmit={savePin} className="rounded-xl border border-[#e5dfd3] bg-white p-5">
+            <h2 className="text-base font-semibold text-[#1f2a22]">PIN Panitia</h2>
+            <p className="mt-1 text-xs leading-relaxed text-[#8a8374]">
+              {pinSet === null
+                ? "Memuat..."
+                : pinSet
+                  ? "PIN sudah diatur. Mengganti PIN akan mengeluarkan semua HP panitia yang sedang masuk."
+                  : "Belum ada PIN. Atur 6 angka yang akan dibagikan ke semua panitia."}
+            </p>
+            <div className="mt-3 flex gap-2">
+              <input
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                placeholder="6 angka"
+                aria-label="PIN panitia"
+                className="w-40 rounded-lg border border-[#d9d2c5] px-3 py-2 font-mono text-sm tracking-[0.3em] outline-none focus:border-[#24412f]"
+              />
+              <Button type="submit" variant="primary" disabled={pin.length !== 6 || savingPin}>
+                {savingPin && <Spinner />}
+                {pinSet ? "Ganti PIN" : "Simpan PIN"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface Session {
   authenticated: boolean;
   configured: boolean;
@@ -1016,6 +1310,7 @@ export default function AdminPage() {
               [
                 ["wishes", "Ucapan"],
                 ["invites", "Kirim Undangan"],
+                ["checkin", "Check-in"],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -1045,7 +1340,13 @@ export default function AdminPage() {
           </div>
         )}
         <ConfirmProvider>
-          {tab === "wishes" ? <WishesTab onAuthError={handleAuthError} /> : <InvitesTab onAuthError={handleAuthError} />}
+          {tab === "wishes" ? (
+            <WishesTab onAuthError={handleAuthError} />
+          ) : tab === "invites" ? (
+            <InvitesTab onAuthError={handleAuthError} />
+          ) : (
+            <CheckinTab onAuthError={handleAuthError} />
+          )}
         </ConfirmProvider>
       </main>
     </div>

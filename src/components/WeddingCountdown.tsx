@@ -2,11 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import { canvasText, u } from "./canvasLayout";
+import { CheckinPassDialog } from "./CheckinPass";
 import { WEDDING_END, WEDDING_START, googleCalendarUrl } from "@/lib/weddingEvent";
 
-// Countdown to the akad plus a "Simpan ke Kalender" button, placed under the Maps button of the event section.
-// `top` is the section-local y of the heading; the block is COUNTDOWN_BLOCK_H tall (button bottom).
-export const COUNTDOWN_BLOCK_H = 194.45;
+// Countdown to the akad plus "Simpan ke Kalender" and "QR Check-in" buttons, placed under the Maps button of the event
+// section. `top` is the section-local y of the heading; the block is COUNTDOWN_BLOCK_H tall (last button's bottom).
 
 const BODY_FONT = "'QuattrocentoLocal', 'Quattrocento', serif";
 const SCRIPT_FONT = "'SloopScript', 'Great Vibes', cursive";
@@ -19,6 +19,9 @@ const BOXES_TOP = 62;
 const BUTTON_TOP = 162;
 const BUTTON_W = 200;
 const BUTTON_H = 32.45;
+const CHECKIN_BUTTON_TOP = BUTTON_TOP + BUTTON_H + 14;
+
+export const COUNTDOWN_BLOCK_H = CHECKIN_BUTTON_TOP + BUTTON_H;
 
 const UNITS = ["Hari", "Jam", "Menit", "Detik"] as const;
 
@@ -30,6 +33,7 @@ const remaining = (now: number) => {
 export const WeddingCountdown: React.FC<{ top: number }> = ({ top }) => {
   // Unknown until mounted, so the server render and the first client render match
   const [now, setNow] = useState<number | null>(null);
+  const [passOpen, setPassOpen] = useState(false);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -117,6 +121,26 @@ export const WeddingCountdown: React.FC<{ top: number }> = ({ top }) => {
       >
         <span style={canvasText([0, 5.62, BUTTON_W], BODY_FONT, 16.32, 20.29)}>Simpan ke Kalender</span>
       </a>
+
+      <button
+        type="button"
+        data-reveal="pop"
+        onClick={() => setPassOpen(true)}
+        style={{
+          position: "absolute",
+          left: u((440 - BUTTON_W) / 2),
+          top: u(top + CHECKIN_BUTTON_TOP),
+          width: u(BUTTON_W),
+          height: u(BUTTON_H),
+          padding: 0,
+          border: `${u(1)} solid rgba(250, 243, 237, 0.7)`,
+          backgroundColor: "transparent",
+          borderRadius: u(4),
+        }}
+      >
+        <span style={canvasText([0, 5.62 - 1, BUTTON_W - 2], BODY_FONT, 16.32, 20.29)}>QR Check-in</span>
+      </button>
+      {passOpen && <CheckinPassDialog onClose={() => setPassOpen(false)} />}
     </>
   );
 };
