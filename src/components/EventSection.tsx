@@ -34,6 +34,12 @@ const SCRIPT_FONT = "'SloopScript', 'Great Vibes', cursive";
 
 const textStyle = canvasText;
 
+// The fountain picture split in two: the pool (minus the spray dome above its rim) lies flat and spreads out, the spray
+// dome on top bursts up out of it last and keeps breathing (percentages of the fountain image)
+const POOL_CLIP = "polygon(0 0, 41.6% 0, 41.6% 38%, 59.8% 38%, 59.8% 0, 100% 0, 100% 100%, 0 100%)";
+const SPRAY_CLIP =
+  "polygon(46% 0, 53.5% 0, 55.6% 9%, 57.4% 20%, 58.6% 35%, 59.6% 55%, 59.6% 74%, 42% 74%, 42% 55%, 42.6% 35%, 43.6% 20%, 44.6% 9%)";
+
 // Render scales of the date block texts in the reference
 const DATE_BLOCK_SCALE = 1.14795;
 
@@ -196,7 +202,8 @@ export const EventSection: React.FC<EventSectionProps> = ({
       <ClippedImage src={`${MEDIA}/6a46472959bb93e40e93e6f7e53db377.png`} alt="Venue Illustration" img={[158.94, 552.97, 126.05, 94.09]} reveal="popup-up" revealDelay={350} />
       <ClippedImage src={`${MEDIA}/061bb6589fe36bb9f07745260df53b3a.png`} alt="" img={[155, 573.1, 28, 77.03]} reveal="popup-up" revealDelay={1500} />
       <ClippedImage src={`${MEDIA}/edb61eab0272fcfcb100ac74f196fa4b.png`} alt="" img={[256.98, 573.1, 31.94, 77.03]} reveal="popup-up" revealDelay={1650} />
-      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.png`} alt="" img={[96.36, 643.13, 247.28, 33.69]} reveal="popup-up" />
+      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.png`} alt="" img={[96.36, 643.13, 247.28, 33.69]} clipPath={POOL_CLIP} reveal="popup-pool" />
+      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.png`} alt="" img={[96.36, 643.13, 247.28, 33.69]} clipPath={SPRAY_CLIP} reveal="popup-spray" revealDelay={2500} />
 
       {/* 5. Akad details */}
       <p data-reveal="blur" style={textStyle([69.69, 741.57, 300.63], SCRIPT_FONT, 51.556, 72.15)}>Akad</p>
