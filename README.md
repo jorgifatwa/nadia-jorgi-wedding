@@ -48,7 +48,7 @@ Mengganti `ADMIN_PASSWORD` di Vercel setelah akun dibuat **tidak** mengubah pass
 Setelah online:
 
 - Cek pratinjau link WhatsApp/Instagram di [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) (tombol *Scrape Again* juga menyegarkan cache pratinjau).
-- Di `/admin` → Kirim Undangan, isi **Alamat website undangan** dengan domain final agar link di pesan WhatsApp benar.
+- Link undangan di pesan WhatsApp selalu mengarah ke `https://nadia-jorgi-wedding.vercel.app` (atau `NEXT_PUBLIC_SITE_URL` jika diisi, mis. domain sendiri).
 
 ## Struktur singkat
 

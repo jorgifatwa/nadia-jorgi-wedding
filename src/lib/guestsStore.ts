@@ -20,7 +20,6 @@ export interface Guest {
 
 export interface InviteSettings {
   template: string;
-  baseUrl: string;
 }
 
 export const DEFAULT_TEMPLATE = `Assalamu'alaikum Warahmatullahi Wabarakatuh
@@ -50,7 +49,7 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh`;
 const GUESTS = "guests";
 const SETTINGS = "settings";
 const SETTINGS_KEY = "invite";
-const DEFAULT_SETTINGS: InviteSettings = { template: DEFAULT_TEMPLATE, baseUrl: "" };
+const DEFAULT_SETTINGS: InviteSettings = { template: DEFAULT_TEMPLATE };
 
 interface GuestRow {
   id: string;
@@ -149,7 +148,7 @@ export const getSettings = async (): Promise<InviteSettings> => {
   } else {
     stored = await readJson<Partial<InviteSettings>>(SETTINGS, {});
   }
-  return { ...DEFAULT_SETTINGS, ...stored };
+  return { template: stored.template ?? DEFAULT_SETTINGS.template };
 };
 
 export const saveSettings = async (settings: InviteSettings): Promise<InviteSettings> => {

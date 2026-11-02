@@ -101,8 +101,10 @@ export const WishesSection: React.FC = () => {
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState("");
-  // Guest from a personal invitation link (?g=<id>): the name comes from the guest list and can't be edited
+  // Guest from a personal invitation link (?g=<id>); for guests with a WhatsApp number the name comes from the guest
+  // list and can't be edited
   const [guestId, setGuestId] = useState<string | null>(null);
+  const [nameLocked, setNameLocked] = useState(false);
   const [attendance, setAttendance] = useState("");
   const [message, setMessage] = useState("");
   const [website, setWebsite] = useState("");
@@ -146,9 +148,14 @@ export const WishesSection: React.FC = () => {
       try {
         const res = await fetch(`/api/wishes/guest?g=${encodeURIComponent(id)}`, { cache: "no-store" });
         if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { name: string };
-        setName(data.name);
+        const data = (await res.json()) as { name: string; locked: boolean };
         setGuestId(id);
+        if (data.locked) {
+          setName(data.name);
+          setNameLocked(true);
+        } else {
+          setName((current) => current || data.name.slice(0, NAME_MAX));
+        }
       } catch {
         // Stay with the editable name
       }
@@ -163,7 +170,7 @@ export const WishesSection: React.FC = () => {
     e.preventDefault();
     if (submitting) return;
 
-    const error = validateWish({ name: guestId ? name.slice(0, NAME_MAX) : name, message, attendance });
+    const error = validateWish({ name: nameLocked ? name.slice(0, NAME_MAX) : name, message, attendance });
     if (error) {
       setStatus({ kind: "error", text: error });
       return;
@@ -245,7 +252,7 @@ export const WishesSection: React.FC = () => {
              phones pushes the list down instead of overlapping it */}
       <div style={{ position: "absolute", left: u(40), top: u(208), width: u(360), display: "flex", flexDirection: "column" }}>
         <form onSubmit={handleSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: u(10) }}>
-          {guestId ? (
+          {nameLocked ? (
             <div
               aria-label="Nama"
               style={{ ...fieldStyle, display: "flex", alignItems: "center", gap: u(8), backgroundColor: "rgba(10, 22, 15, 0.2)", borderStyle: "dashed" }}

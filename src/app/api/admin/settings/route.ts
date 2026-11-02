@@ -9,16 +9,12 @@ export const GET = withErrors(async () => {
 
 export const PUT = withErrors(async (request: Request) => {
   if (!(await isAdminRequest())) return unauthorized();
-  const { template, baseUrl } = ((await request.json().catch(() => ({}))) ?? {}) as { template?: unknown; baseUrl?: unknown };
+  const { template } = ((await request.json().catch(() => ({}))) ?? {}) as { template?: unknown };
   if (typeof template !== "string" || template.trim().length < 10 || template.length > 4000) {
     return Response.json({ error: "Template pesan harus 10-4000 karakter." }, { status: 400 });
   }
   if (!template.includes("{link}")) {
     return Response.json({ error: "Template harus memuat {link} agar tamu menerima link undangan." }, { status: 400 });
   }
-  const cleanBaseUrl = typeof baseUrl === "string" ? baseUrl.trim().replace(/\/+$/, "") : "";
-  if (cleanBaseUrl && !/^https?:\/\/[^\s/]+/i.test(cleanBaseUrl)) {
-    return Response.json({ error: "Alamat website harus diawali http:// atau https://" }, { status: 400 });
-  }
-  return Response.json({ settings: await saveSettings({ template, baseUrl: cleanBaseUrl }) });
+  return Response.json({ settings: await saveSettings({ template }) });
 });

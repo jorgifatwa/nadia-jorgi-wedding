@@ -26,12 +26,14 @@ export const POST = withErrors(async (request: Request) => {
   }
 
   const { message, attendance, website, guestId } = (body ?? {}) as Record<string, unknown>;
-  // From a personal link the name comes from the guest list, whatever the form sent
+  // From a personal link the wish is tied to the guest; for guests with a WhatsApp number the name also comes from the
+  // guest list, whatever the form sent (those without one type their own name)
   const guest = typeof guestId === "string" && guestId ? await getGuest(guestId) : null;
   if (typeof guestId === "string" && guestId && !guest) {
     return Response.json({ error: "Link undangan tidak valid, silakan buka kembali link dari pesan WhatsApp." }, { status: 400 });
   }
-  const name = guest ? guest.name : (body as Record<string, unknown>)?.name;
+  const lockedName = guest?.phone ? guest.name : null;
+  const name = lockedName ?? (body as Record<string, unknown>)?.name;
   if (typeof name !== "string" || typeof message !== "string") {
     return Response.json({ error: "Nama dan ucapan wajib diisi." }, { status: 400 });
   }
@@ -41,7 +43,7 @@ export const POST = withErrors(async (request: Request) => {
   }
 
   // Guest list names may be longer than the form allows (e.g. "Bapak Ahmad & Keluarga Besar")
-  const error = validateWish({ name: guest ? name.slice(0, NAME_MAX) : name, message, attendance: typeof attendance === "string" ? attendance : "" });
+  const error = validateWish({ name: lockedName ? name.slice(0, NAME_MAX) : name, message, attendance: typeof attendance === "string" ? attendance : "" });
   if (error || !isAttendance(attendance)) {
     return Response.json({ error: error ?? "Konfirmasi kehadiran tidak valid." }, { status: 400 });
   }

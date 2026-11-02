@@ -27,7 +27,6 @@ interface Guest {
 
 interface InviteSettings {
   template: string;
-  baseUrl: string;
 }
 
 type Tab = "wishes" | "invites";
@@ -43,11 +42,18 @@ const formatDate = (iso: string) =>
   new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
 // Personal link: ?to shows the name on the envelope, ?g ties wishes sent from it to this guest (name locked in the form)
-const inviteLink = (baseUrl: string, guest: { name: string; id?: string }) =>
-  `${baseUrl || window.location.origin}/?to=${encodeURIComponent(guest.name)}${guest.id ? `&g=${guest.id}` : ""}`;
+// The invitation's public address; NEXT_PUBLIC_SITE_URL overrides it (e.g. a custom domain, with or without https://)
+const SITE_URL = (() => {
+  const custom = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
+  if (!custom) return "https://nadia-jorgi-wedding.vercel.app";
+  return /^https?:\/\//i.test(custom) ? custom : `https://${custom}`;
+})();
 
-const renderMessage = (template: string, baseUrl: string, guest: { name: string; id?: string }) =>
-  template.replaceAll("{nama}", guest.name).replaceAll("{link}", inviteLink(baseUrl, guest));
+const inviteLink = (guest: { name: string; id?: string }) =>
+  `${SITE_URL}/?to=${encodeURIComponent(guest.name)}${guest.id ? `&g=${guest.id}` : ""}`;
+
+const renderMessage = (template: string, guest: { name: string; id?: string }) =>
+  template.replaceAll("{nama}", guest.name).replaceAll("{link}", inviteLink(guest));
 
 const whatsappUrl = (phone: string | null, text: string) =>
   `https://wa.me/${phone ?? ""}?text=${encodeURIComponent(text)}`;
@@ -419,7 +425,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
 const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   const confirm = useConfirm();
   const [guests, setGuests] = useState<Guest[]>([]);
-  const [settings, setSettings] = useState<InviteSettings>({ template: "", baseUrl: "" });
+  const [settings, setSettings] = useState<InviteSettings>({ template: "" });
   const [defaultTemplate, setDefaultTemplate] = useState("");
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -499,7 +505,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   };
 
   const sendWhatsApp = (guest: Guest) => {
-    window.open(whatsappUrl(guest.phone, renderMessage(settings.template, settings.baseUrl, guest)), "_blank", "noopener");
+    window.open(whatsappUrl(guest.phone, renderMessage(settings.template, guest)), "_blank", "noopener");
     if (!guest.sentAt) setSent(guest, true);
   };
 
@@ -690,7 +696,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                         <Button variant="whatsapp" onClick={() => sendWhatsApp(guest)} className="px-2.5 py-1.5 text-xs">
                           Kirim WA
                         </Button>
-                        <Button onClick={() => copy(inviteLink(settings.baseUrl, guest), "Link undangan")} className="px-2.5 py-1.5 text-xs">
+                        <Button onClick={() => copy(inviteLink(guest), "Link undangan")} className="px-2.5 py-1.5 text-xs">
                           Salin Link
                         </Button>
                         <Button variant="danger" onClick={() => remove(guest)} className="px-2.5 py-1.5 text-xs">
@@ -720,25 +726,14 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               Gunakan <code className="font-mono">{"{nama}"}</code> untuk nama tamu dan <code className="font-mono">{"{link}"}</code> untuk link
               undangan personal. Teks di antara *bintang* akan tebal di WhatsApp.
             </p>
-            <label className="mt-4 block text-xs font-medium text-[#3d463f]">Alamat website undangan</label>
-            <input
-              value={settings.baseUrl}
-              onChange={(e) => {
-                setSettings((s) => ({ ...s, baseUrl: e.target.value }));
-                setSettingsDirty(true);
-              }}
-              placeholder={typeof window !== "undefined" ? window.location.origin : "https://undangan-anda.com"}
-              className="mt-1 w-full rounded-lg border border-[#d9d2c5] px-3 py-2 text-sm outline-none focus:border-[#24412f]"
-            />
-            <p className="mt-1 text-xs text-[#8a8374]">Kosongkan untuk memakai alamat website ini.</p>
             <textarea
               value={settings.template}
               onChange={(e) => {
                 setSettings((s) => ({ ...s, template: e.target.value }));
                 setSettingsDirty(true);
               }}
-              rows={12}
-              className="mt-3 w-full rounded-lg border border-[#d9d2c5] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[#24412f]"
+              rows={14}
+              className="mt-4 w-full rounded-lg border border-[#d9d2c5] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[#24412f]"
             />
             <div className="mt-2 flex gap-2">
               <Button variant="primary" onClick={saveSettings} disabled={!settingsDirty}>
@@ -761,14 +756,14 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               <span className="text-xs text-[#6f6858]">untuk: {previewName}</span>
             </div>
             <div className="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-[#dcf8c6] p-3 text-sm text-[#1f2a22] shadow-sm">
-              {renderMessage(settings.template, settings.baseUrl, previewGuest ?? { name: previewName })}
+              {renderMessage(settings.template, previewGuest ?? { name: previewName })}
             </div>
             {previewGuest && (
               <div className="mt-3 flex gap-2">
                 <Button variant="whatsapp" onClick={() => sendWhatsApp(previewGuest)}>
                   Kirim ke {previewGuest.name.split(" ")[0]}
                 </Button>
-                <Button onClick={() => copy(renderMessage(settings.template, settings.baseUrl, previewGuest), "Pesan")}>Salin Pesan</Button>
+                <Button onClick={() => copy(renderMessage(settings.template, previewGuest), "Pesan")}>Salin Pesan</Button>
               </div>
             )}
           </div>
