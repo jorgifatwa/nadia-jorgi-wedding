@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { getGuest } from "@/lib/guestsStore";
-import { clientIp, rateLimit } from "@/lib/redis";
+import { clientIp, rateLimit } from "@/lib/db";
 import { withErrors } from "@/lib/apiHandler";
 
 // Resolves the guest of a personal invitation link (?g=<id>) so the wish form can show their name locked

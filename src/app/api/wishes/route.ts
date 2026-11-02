@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { getGuest, updateGuest } from "@/lib/guestsStore";
 import { addWish, listWishes, type Wish } from "@/lib/wishesStore";
-import { clientIp, rateLimit } from "@/lib/redis";
+import { clientIp, rateLimit } from "@/lib/db";
 import { NAME_MAX, cleanText, isAttendance, validateWish } from "@/lib/wishValidation";
 import { withErrors } from "@/lib/apiHandler";
 

@@ -1,11 +1,11 @@
 import "server-only";
 import { randomUUID } from "crypto";
 import { readJson, updateJson } from "./jsonStore";
-import { key, redis } from "./redis";
+import { getDb, toIso } from "./db";
 import type { Attendance } from "./wishValidation";
 
-// Invitation guest list and the WhatsApp message settings. Redis: a hash of id -> guest plus a sorted set in insertion
-// order, and a JSON settings value; locally: data/guests.json and data/settings.json.
+// Invitation guest list and the WhatsApp message settings. Postgres tables `guests` (insertion order) and `settings`
+// (JSON value under the "invite" key); locally without a database: data/guests.json and data/settings.json.
 
 export interface Guest {
   id: string;
@@ -49,49 +49,79 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh`;
 
 const GUESTS = "guests";
 const SETTINGS = "settings";
+const SETTINGS_KEY = "invite";
 const DEFAULT_SETTINGS: InviteSettings = { template: DEFAULT_TEMPLATE, baseUrl: "" };
-const GUEST_HASH = key("guests");
-const GUEST_INDEX = key("guests:index");
-const SETTINGS_KEY = key("settings");
+
+interface GuestRow {
+  id: string;
+  name: string;
+  phone: string | null;
+  created_at: Date;
+  sent_at: Date | null;
+  attendance: Attendance | null;
+  responded_at: Date | null;
+}
+
+const fromRow = (row: GuestRow): Guest => ({
+  id: row.id,
+  name: row.name,
+  phone: row.phone,
+  createdAt: toIso(row.created_at)!,
+  sentAt: toIso(row.sent_at),
+  attendance: row.attendance,
+  respondedAt: toIso(row.responded_at),
+});
 
 export const listGuests = async (): Promise<Guest[]> => {
-  if (redis) {
-    const ids = await redis.zrange<string[]>(GUEST_INDEX, 0, -1);
-    if (ids.length === 0) return [];
-    const byId = (await redis.hmget<Record<string, Guest>>(GUEST_HASH, ...ids)) ?? {};
-    return ids.map((id) => byId[id]).filter((guest): guest is Guest => Boolean(guest));
-  }
+  const sql = await getDb();
+  if (sql) return (await sql<GuestRow[]>`select * from guests order by seq`).map(fromRow);
   return readJson<Guest[]>(GUESTS, []);
 };
 
 export const getGuest = async (id: string): Promise<Guest | null> => {
-  if (redis) return (await redis.hget<Guest>(GUEST_HASH, id)) ?? null;
+  const sql = await getDb();
+  if (sql) {
+    const [row] = await sql<GuestRow[]>`select * from guests where id = ${id}`;
+    return row ? fromRow(row) : null;
+  }
   return (await readJson<Guest[]>(GUESTS, [])).find((guest) => guest.id === id) ?? null;
 };
 
 export const addGuests = async (entries: { name: string; phone: string | null }[]): Promise<Guest[]> => {
   const now = new Date().toISOString();
   const added: Guest[] = entries.map((entry) => ({ id: randomUUID(), name: entry.name, phone: entry.phone, createdAt: now, sentAt: null }));
-  if (redis && added.length > 0) {
-    const base = Date.now();
-    const [first, ...rest] = added.map((guest, idx) => ({ score: base + idx, member: guest.id }));
-    await redis
-      .multi()
-      .hset(GUEST_HASH, Object.fromEntries(added.map((guest) => [guest.id, guest])))
-      .zadd(GUEST_INDEX, first, ...rest)
-      .exec();
-    return added;
+  const sql = await getDb();
+  if (sql) {
+    if (added.length === 0) return [];
+    // One multi-row insert; the identity column keeps the list order
+    const rows = await sql<GuestRow[]>`
+      insert into guests ${sql(added.map(({ id, name, phone }) => ({ id, name, phone })), "id", "name", "phone")}
+      returning *
+    `;
+    return rows.map(fromRow);
   }
   return updateJson<Guest[], Guest[]>(GUESTS, [], (guests) => ({ data: [...guests, ...added], result: added }));
 };
 
-export const updateGuest = async (id: string, changes: Partial<Pick<Guest, "name" | "phone" | "sentAt" | "attendance" | "respondedAt">>): Promise<Guest | null> => {
-  if (redis) {
-    const current = await redis.hget<Guest>(GUEST_HASH, id);
-    if (!current) return null;
-    const updated = { ...current, ...changes };
-    await redis.hset(GUEST_HASH, { [id]: updated });
-    return updated;
+type GuestChanges = Partial<Pick<Guest, "name" | "phone" | "sentAt" | "attendance" | "respondedAt">>;
+
+const COLUMNS: Record<keyof GuestChanges, string> = {
+  name: "name",
+  phone: "phone",
+  sentAt: "sent_at",
+  attendance: "attendance",
+  respondedAt: "responded_at",
+};
+
+export const updateGuest = async (id: string, changes: GuestChanges): Promise<Guest | null> => {
+  const sql = await getDb();
+  if (sql) {
+    const values = Object.fromEntries(
+      (Object.keys(changes) as (keyof GuestChanges)[]).filter((field) => changes[field] !== undefined).map((field) => [COLUMNS[field], changes[field] ?? null]),
+    );
+    if (Object.keys(values).length === 0) return getGuest(id);
+    const [row] = await sql<GuestRow[]>`update guests set ${sql(values)} where id = ${id} returning *`;
+    return row ? fromRow(row) : null;
   }
   return updateJson<Guest[], Guest | null>(GUESTS, [], (guests) => {
     const current = guests.find((guest) => guest.id === id);
@@ -102,10 +132,8 @@ export const updateGuest = async (id: string, changes: Partial<Pick<Guest, "name
 };
 
 export const deleteGuest = async (id: string): Promise<boolean> => {
-  if (redis) {
-    const [removed] = await redis.multi().hdel(GUEST_HASH, id).zrem(GUEST_INDEX, id).exec<[number, number]>();
-    return removed > 0;
-  }
+  const sql = await getDb();
+  if (sql) return (await sql`delete from guests where id = ${id}`).count > 0;
   return updateJson<Guest[], boolean>(GUESTS, [], (guests) => {
     const data = guests.filter((guest) => guest.id !== id);
     return { data, result: data.length !== guests.length };
@@ -113,13 +141,22 @@ export const deleteGuest = async (id: string): Promise<boolean> => {
 };
 
 export const getSettings = async (): Promise<InviteSettings> => {
-  const stored = redis ? await redis.get<Partial<InviteSettings>>(SETTINGS_KEY) : await readJson<Partial<InviteSettings>>(SETTINGS, {});
-  return { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
+  const sql = await getDb();
+  let stored: Partial<InviteSettings> = {};
+  if (sql) {
+    const [row] = await sql<{ value: string }[]>`select value from settings where key = ${SETTINGS_KEY}`;
+    if (row) stored = JSON.parse(row.value) as Partial<InviteSettings>;
+  } else {
+    stored = await readJson<Partial<InviteSettings>>(SETTINGS, {});
+  }
+  return { ...DEFAULT_SETTINGS, ...stored };
 };
 
 export const saveSettings = async (settings: InviteSettings): Promise<InviteSettings> => {
-  if (redis) {
-    await redis.set(SETTINGS_KEY, settings);
+  const sql = await getDb();
+  if (sql) {
+    const value = JSON.stringify(settings);
+    await sql`insert into settings (key, value) values (${SETTINGS_KEY}, ${value}) on conflict (key) do update set value = excluded.value`;
     return settings;
   }
   return updateJson<InviteSettings, InviteSettings>(SETTINGS, DEFAULT_SETTINGS, () => ({ data: settings, result: settings }));

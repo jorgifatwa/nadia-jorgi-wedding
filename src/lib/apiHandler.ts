@@ -1,6 +1,6 @@
 import "server-only";
 import { unstable_rethrow } from "next/navigation";
-import { storageMode } from "./redis";
+import { storageMode } from "./db";
 
 // Wraps a route handler so storage failures reach the client as a JSON message instead of a bare 500
 export const withErrors =
@@ -13,7 +13,7 @@ export const withErrors =
       console.error(err);
       const error =
         storageMode() === "missing"
-          ? "Penyimpanan belum dikonfigurasi: hubungkan Upstash Redis ke project Vercel ini, lalu Redeploy."
+          ? "Database belum dikonfigurasi: hubungkan Postgres ke project Vercel ini, lalu Redeploy."
           : "Server gagal memproses data, coba lagi sebentar lagi.";
       return Response.json({ error }, { status: 503 });
     }

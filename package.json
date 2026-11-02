@@ -6,14 +6,15 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "node scripts/seed.mjs"
   },
   "dependencies": {
-    "@upstash/redis": "^1.41.0",
     "canvas-confetti": "^1.9.4",
     "lottie-web": "^5.13.0",
     "lucide-react": "^1.59.0",
     "next": "16.4.2",
+    "postgres": "^4.0.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

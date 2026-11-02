@@ -194,6 +194,7 @@ const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ children }) 
 };
 
 const LoginScreen: React.FC<{ configured: boolean; onLoggedIn: () => void }> = ({ configured, onLoggedIn }) => {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -203,7 +204,7 @@ const LoginScreen: React.FC<{ configured: boolean; onLoggedIn: () => void }> = (
     setBusy(true);
     setError(null);
     try {
-      await api("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) });
+      await api("/api/admin/login", { method: "POST", body: JSON.stringify({ username, password }) });
       onLoggedIn();
     } catch (err) {
       setError((err as Error).message);
@@ -219,24 +220,37 @@ const LoginScreen: React.FC<{ configured: boolean; onLoggedIn: () => void }> = (
         <h1 className="mt-1 text-2xl font-semibold text-[#1f2a22]">Nadia &amp; Jorgi</h1>
         {!configured ? (
           <p className="mt-6 rounded-lg bg-[#fff7e6] p-3 text-sm text-[#7a5a12]">
-            Login admin belum aktif. Atur <code className="font-mono">ADMIN_PASSWORD</code> di environment server (mis. file{" "}
-            <code className="font-mono">.env.local</code>) lalu muat ulang halaman ini.
+            Belum ada akun admin. Jalankan <code className="font-mono">pnpm db:seed</code>, atau atur{" "}
+            <code className="font-mono">ADMIN_PASSWORD</code> di environment server lalu muat ulang halaman ini.
           </p>
         ) : (
           <>
-            <label className="mt-6 block text-sm font-medium text-[#3d463f]" htmlFor="admin-password">
+            <label className="mt-6 block text-sm font-medium text-[#3d463f]" htmlFor="admin-username">
+              Username
+            </label>
+            <input
+              id="admin-username"
+              type="text"
+              autoFocus
+              autoComplete="username"
+              autoCapitalize="none"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[#d9d2c5] px-3 py-2.5 text-[#1f2a22] outline-none focus:border-[#24412f]"
+            />
+            <label className="mt-4 block text-sm font-medium text-[#3d463f]" htmlFor="admin-password">
               Password
             </label>
             <input
               id="admin-password"
               type="password"
-              autoFocus
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1.5 w-full rounded-lg border border-[#d9d2c5] px-3 py-2.5 text-[#1f2a22] outline-none focus:border-[#24412f]"
             />
             {error && <p className="mt-2 text-sm text-[#9b1c1c]">{error}</p>}
-            <Button type="submit" variant="primary" disabled={busy || !password} className="mt-5 w-full py-2.5">
+            <Button type="submit" variant="primary" disabled={busy || !username.trim() || !password} className="mt-5 w-full py-2.5">
               {busy ? "Memeriksa..." : "Masuk"}
             </Button>
           </>
@@ -767,15 +781,21 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
 interface Session {
   authenticated: boolean;
   configured: boolean;
-  storage: "redis" | "file" | "missing";
+  storage: "postgres" | "file" | "missing";
 }
 
 export default function AdminPage() {
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("wishes");
 
   const checkSession = useCallback(async () => {
-    setSession(await api<Session>("/api/admin/session"));
+    try {
+      setSession(await api<Session>("/api/admin/session"));
+      setSessionError(null);
+    } catch (err) {
+      setSessionError((err as Error).message);
+    }
   }, []);
 
   useEffect(() => {
@@ -790,6 +810,19 @@ export default function AdminPage() {
     setSession((s) => (s ? { ...s, authenticated: false } : s));
   };
 
+  if (sessionError && !session) {
+    return (
+      <div className="admin-root flex min-h-screen items-center justify-center bg-[#f6f3ee] font-sans text-[#1f2a22]">
+        <div className="w-[420px] rounded-2xl border border-[#f0c9c9] bg-white p-8 text-sm shadow-sm">
+          <p className="font-semibold text-[#9b1c1c]">Server admin tidak dapat dihubungi</p>
+          <p className="mt-2 text-[#3d463f]">{sessionError}</p>
+          <Button className="mt-5" onClick={checkSession}>
+            Coba Lagi
+          </Button>
+        </div>
+      </div>
+    );
+  }
   if (!session) return <div className="admin-root min-h-screen bg-[#f6f3ee]" />;
   if (!session.authenticated) return <LoginScreen configured={session.configured} onLoggedIn={checkSession} />;
 
@@ -830,8 +863,8 @@ export default function AdminPage() {
       <main className="mx-auto max-w-7xl px-8 py-8">
         {session.storage === "missing" && (
           <div className="mb-6 rounded-xl border border-[#f0c9c9] bg-[#fdf1f1] p-4 text-sm text-[#9b1c1c]">
-            <strong>Penyimpanan belum terhubung.</strong> Ucapan, daftar tamu, dan template tidak bisa disimpan. Di Vercel buka
-            Storage → Create Database → Upstash (Redis), hubungkan ke project ini, lalu Redeploy.
+            <strong>Database belum terhubung.</strong> Ucapan, daftar tamu, dan template tidak bisa disimpan. Di Vercel buka
+            Storage → Create Database → Neon (Postgres), hubungkan ke project ini, lalu Redeploy.
           </div>
         )}
         <ConfirmProvider>

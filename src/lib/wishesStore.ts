@@ -1,11 +1,10 @@
 import "server-only";
 import { randomUUID } from "crypto";
 import { readJson, updateJson } from "./jsonStore";
-import { key, redis } from "./redis";
+import { getDb, toIso } from "./db";
 import type { Attendance } from "./wishValidation";
 
-// Guest wishes, newest first. Redis: a hash of id -> wish plus a sorted set ordered by time;
-// locally: data/wishes.json.
+// Guest wishes, newest first. Postgres table `wishes`; locally without a database: data/wishes.json.
 
 export interface Wish {
   id: string;
@@ -19,34 +18,52 @@ export interface Wish {
 
 const FILE = "wishes";
 const MAX_STORED = 2000;
-const HASH = key("wishes");
-const INDEX = key("wishes:index");
+
+interface WishRow {
+  id: string;
+  name: string;
+  message: string;
+  attendance: Attendance | null;
+  guest_id: string | null;
+  created_at: Date;
+}
+
+const fromRow = (row: WishRow): Wish => ({
+  id: row.id,
+  name: row.name,
+  message: row.message,
+  ...(row.attendance ? { attendance: row.attendance } : {}),
+  ...(row.guest_id ? { guestId: row.guest_id } : {}),
+  createdAt: toIso(row.created_at)!,
+});
 
 export const listWishes = async (limit = 200): Promise<Wish[]> => {
-  if (redis) {
-    const ids = await redis.zrange<string[]>(INDEX, 0, limit - 1, { rev: true });
-    if (ids.length === 0) return [];
-    const byId = (await redis.hmget<Record<string, Wish>>(HASH, ...ids)) ?? {};
-    return ids.map((id) => byId[id]).filter((wish): wish is Wish => Boolean(wish));
+  const sql = await getDb();
+  if (sql) {
+    const rows = await sql<WishRow[]>`select * from wishes order by seq desc limit ${Math.min(limit, 100_000)}`;
+    return rows.map(fromRow);
   }
   const wishes = await readJson<Wish[]>(FILE, []);
   return wishes.slice(0, limit);
 };
 
 export const addWish = async (name: string, message: string, attendance: Attendance, guestId?: string): Promise<Wish> => {
-  const wish: Wish = { id: randomUUID(), name, message, attendance, ...(guestId ? { guestId } : {}), createdAt: new Date().toISOString() };
-  if (redis) {
-    await redis.multi().hset(HASH, { [wish.id]: wish }).zadd(INDEX, { score: Date.now(), member: wish.id }).exec();
-    return wish;
+  const sql = await getDb();
+  if (sql) {
+    const [row] = await sql<WishRow[]>`
+      insert into wishes (id, name, message, attendance, guest_id)
+      values (${randomUUID()}, ${name}, ${message}, ${attendance}, ${guestId ?? null})
+      returning *
+    `;
+    return fromRow(row);
   }
+  const wish: Wish = { id: randomUUID(), name, message, attendance, ...(guestId ? { guestId } : {}), createdAt: new Date().toISOString() };
   return updateJson<Wish[], Wish>(FILE, [], (wishes) => ({ data: [wish, ...wishes].slice(0, MAX_STORED), result: wish }));
 };
 
 export const deleteWish = async (id: string): Promise<boolean> => {
-  if (redis) {
-    const [removed] = await redis.multi().hdel(HASH, id).zrem(INDEX, id).exec<[number, number]>();
-    return removed > 0;
-  }
+  const sql = await getDb();
+  if (sql) return (await sql`delete from wishes where id = ${id}`).count > 0;
   return updateJson<Wish[], boolean>(FILE, [], (wishes) => {
     const next = wishes.filter((wish) => wish.id !== id);
     return { data: next, result: next.length !== wishes.length };

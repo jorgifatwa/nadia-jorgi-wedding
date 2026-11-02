@@ -24,8 +24,8 @@ export const readJson = async <T>(name: string, fallback: T): Promise<T> => {
 // Read-modify-write under the file's queue; the updater returns the new data plus a result for the caller
 export const updateJson = <T, R>(name: string, fallback: T, updater: (current: T) => { data: T; result: R }): Promise<R> => {
   if (process.env.VERCEL) {
-    // Vercel's filesystem is read-only; data must go to Upstash Redis (see README)
-    return Promise.reject(new Error("Penyimpanan belum dikonfigurasi: hubungkan Upstash Redis ke project Vercel ini."));
+    // Vercel's filesystem is read-only; data must go to Postgres (see README)
+    return Promise.reject(new Error("Database belum dikonfigurasi: hubungkan Postgres ke project Vercel ini."));
   }
   const previous = queues.get(name) ?? Promise.resolve();
   const task = previous.then(async () => {

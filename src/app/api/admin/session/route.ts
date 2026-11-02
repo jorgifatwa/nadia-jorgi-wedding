@@ -1,6 +1,7 @@
 import { isAdminConfigured, isAdminRequest } from "@/lib/adminAuth";
-import { storageMode } from "@/lib/redis";
+import { storageMode } from "@/lib/db";
+import { withErrors } from "@/lib/apiHandler";
 
-export async function GET() {
-  return Response.json({ authenticated: await isAdminRequest(), configured: isAdminConfigured(), storage: storageMode() });
-}
+export const GET = withErrors(async () =>
+  Response.json({ authenticated: await isAdminRequest(), configured: await isAdminConfigured(), storage: storageMode() }),
+);
