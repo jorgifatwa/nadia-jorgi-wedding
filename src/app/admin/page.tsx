@@ -89,10 +89,50 @@ const Button: React.FC<
   );
 };
 
-const StatCard: React.FC<{ label: string; value: number; tone?: string }> = ({ label, value, tone = "text-[#24412f]" }) => (
+const Spinner: React.FC<{ className?: string }> = ({ className = "h-4 w-4" }) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={`animate-spin ${className}`}>
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
+
+const SkeletonBar: React.FC<{ className?: string }> = ({ className = "h-4 w-full" }) => (
+  <div className={`animate-pulse rounded bg-[#ece6da] ${className}`} />
+);
+
+// Placeholder rows while a table loads for the first time
+const SkeletonRows: React.FC<{ columns: string[]; rows?: number }> = ({ columns, rows = 4 }) => (
+  <>
+    {Array.from({ length: rows }, (_, row) => (
+      <tr key={row} aria-hidden="true">
+        {columns.map((width, col) => (
+          <td key={col} className="px-4 py-4">
+            <SkeletonBar className={`h-4 ${width}`} />
+          </td>
+        ))}
+      </tr>
+    ))}
+  </>
+);
+
+// While data reloads, the existing rows stay visible but dimmed
+const LoadingCaption: React.FC = () => (
+  <caption className="caption-bottom py-3 text-sm text-[#8a8374]">
+    <span className="inline-flex items-center gap-2">
+      <Spinner /> Memuat data...
+    </span>
+  </caption>
+);
+
+const StatCard: React.FC<{ label: string; value: number; loading?: boolean; tone?: string }> = ({
+  label,
+  value,
+  loading = false,
+  tone = "text-[#24412f]",
+}) => (
   <div className="rounded-xl border border-[#e5dfd3] bg-white px-5 py-4">
     <div className="text-xs font-medium uppercase tracking-wider text-[#8a8374]">{label}</div>
-    <div className={`mt-1 text-3xl font-semibold ${tone}`}>{value}</div>
+    {loading ? <SkeletonBar className="mt-2.5 h-7 w-14" /> : <div className={`mt-1 text-3xl font-semibold ${tone}`}>{value}</div>}
   </div>
 );
 
@@ -270,6 +310,8 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   const confirm = useConfirm();
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [loading, setLoading] = useState(true);
+  // False until the first load finishes: skeletons instead of an empty table
+  const [loaded, setLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | Attendance>("all");
   const [error, setError] = useState<string | null>(null);
@@ -284,6 +326,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       else setError((err as Error).message);
     } finally {
       setLoading(false);
+      setLoaded(true);
     }
   }, [onAuthError]);
 
@@ -338,9 +381,14 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   return (
     <div>
       <div className="grid grid-cols-3 gap-4">
-        <StatCard label="Total Ucapan" value={wishes.length} />
-        <StatCard label="Hadir" value={wishes.filter((w) => w.attendance === "hadir").length} tone="text-[#1f8f4e]" />
-        <StatCard label="Tidak Hadir" value={wishes.filter((w) => w.attendance === "tidak_hadir").length} tone="text-[#9b1c1c]" />
+        <StatCard label="Total Ucapan" value={wishes.length} loading={!loaded} />
+        <StatCard label="Hadir" value={wishes.filter((w) => w.attendance === "hadir").length} loading={!loaded} tone="text-[#1f8f4e]" />
+        <StatCard
+          label="Tidak Hadir"
+          value={wishes.filter((w) => w.attendance === "tidak_hadir").length}
+          loading={!loaded}
+          tone="text-[#9b1c1c]"
+        />
       </div>
 
       <div className="mt-6 flex items-center gap-3">
@@ -361,6 +409,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
         </select>
         <div className="ml-auto flex gap-2">
           <Button onClick={load} disabled={loading}>
+            {loading && <Spinner />}
             {loading ? "Memuat..." : "Muat Ulang"}
           </Button>
           <Button onClick={exportCsv} disabled={wishes.length === 0}>
@@ -372,7 +421,8 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       {error && <p className="mt-4 rounded-lg bg-[#fdf1f1] p-3 text-sm text-[#9b1c1c]">{error}</p>}
 
       <div className="mt-4 overflow-hidden rounded-xl border border-[#e5dfd3] bg-white">
-        <table className="w-full text-left text-sm">
+        <table className={`w-full text-left text-sm transition-opacity ${loading && loaded ? "opacity-50" : ""}`} aria-busy={loading}>
+          {loading && loaded && <LoadingCaption />}
           <thead className="bg-[#faf8f4] text-xs uppercase tracking-wider text-[#8a8374]">
             <tr>
               <th className="w-48 px-4 py-3 font-medium">Nama</th>
@@ -383,6 +433,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
+            {!loaded && <SkeletonRows columns={["w-28", "w-16", "w-full", "w-28", "ml-auto w-14"]} />}
             {visible.map((wish) => (
               <tr key={wish.id} className="align-top hover:bg-[#fcfbf8]">
                 <td className="px-4 py-3 font-medium">{wish.name}</td>
@@ -408,9 +459,9 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                 </td>
               </tr>
             ))}
-            {!loading && visible.length === 0 && (
+            {loaded && !loading && visible.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-12 text-center text-[#8a8374]">
+                <td colSpan={5} className="px-4 py-12 text-center text-[#8a8374]">
                   {wishes.length === 0 ? "Belum ada ucapan yang masuk." : "Tidak ada ucapan yang cocok dengan pencarian."}
                 </td>
               </tr>
@@ -429,6 +480,8 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   const [defaultTemplate, setDefaultTemplate] = useState("");
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [loading, setLoading] = useState(true);
+  // False until the first load finishes: skeletons instead of an empty table and template
+  const [loaded, setLoaded] = useState(false);
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -460,6 +513,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       handleError(err);
     } finally {
       setLoading(false);
+      setLoaded(true);
     }
   }, [handleError]);
 
@@ -549,9 +603,9 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   return (
     <div>
       <div className="grid grid-cols-3 gap-4">
-        <StatCard label="Total Tamu" value={guests.length} />
-        <StatCard label="Sudah Dikirim" value={sentCount} tone="text-[#1f8f4e]" />
-        <StatCard label="Belum Dikirim" value={guests.length - sentCount} tone="text-[#a06a12]" />
+        <StatCard label="Total Tamu" value={guests.length} loading={!loaded} />
+        <StatCard label="Sudah Dikirim" value={sentCount} loading={!loaded} tone="text-[#1f8f4e]" />
+        <StatCard label="Belum Dikirim" value={guests.length - sentCount} loading={!loaded} tone="text-[#a06a12]" />
       </div>
 
       {notice && (
@@ -638,12 +692,14 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               <option value="sent">Sudah dikirim</option>
             </select>
             <Button onClick={load} disabled={loading} className="ml-auto">
-              {loading ? "Memuat..." : "Muat Ulang"}
+              {loading && <Spinner />}
+            {loading ? "Memuat..." : "Muat Ulang"}
             </Button>
           </div>
 
           <div className="mt-3 overflow-hidden rounded-xl border border-[#e5dfd3] bg-white">
-            <table className="w-full text-left text-sm">
+            <table className={`w-full text-left text-sm transition-opacity ${loading && loaded ? "opacity-50" : ""}`} aria-busy={loading}>
+              {loading && loaded && <LoadingCaption />}
               <thead className="bg-[#faf8f4] text-xs uppercase tracking-wider text-[#8a8374]">
                 <tr>
                   <th className="px-4 py-3 font-medium">Nama</th>
@@ -653,6 +709,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
+                {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "ml-auto w-48"]} />}
                 {visible.map((guest) => (
                   <tr
                     key={guest.id}
@@ -706,9 +763,9 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                     </td>
                   </tr>
                 ))}
-                {!loading && visible.length === 0 && (
+                {loaded && !loading && visible.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-[#8a8374]">
+                    <td colSpan={4} className="px-4 py-12 text-center text-[#8a8374]">
                       {guests.length === 0 ? "Belum ada tamu. Tambahkan tamu di atas." : "Tidak ada tamu yang cocok."}
                     </td>
                   </tr>
@@ -726,20 +783,29 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               Gunakan <code className="font-mono">{"{nama}"}</code> untuk nama tamu dan <code className="font-mono">{"{link}"}</code> untuk link
               undangan personal. Teks di antara *bintang* akan tebal di WhatsApp.
             </p>
-            <textarea
-              value={settings.template}
-              onChange={(e) => {
-                setSettings((s) => ({ ...s, template: e.target.value }));
-                setSettingsDirty(true);
-              }}
-              rows={14}
-              className="mt-4 w-full rounded-lg border border-[#d9d2c5] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[#24412f]"
-            />
+            {loaded ? (
+              <textarea
+                value={settings.template}
+                onChange={(e) => {
+                  setSettings((s) => ({ ...s, template: e.target.value }));
+                  setSettingsDirty(true);
+                }}
+                rows={14}
+                className="mt-4 w-full rounded-lg border border-[#d9d2c5] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[#24412f]"
+              />
+            ) : (
+              <div className="mt-4 flex h-[322px] flex-col gap-3 rounded-lg border border-[#d9d2c5] p-3" aria-label="Memuat template">
+                {["w-3/4", "w-1/3", "w-1/2", "w-full", "w-5/6", "w-2/3", "w-full", "w-1/2"].map((width, idx) => (
+                  <SkeletonBar key={idx} className={`h-3.5 ${width}`} />
+                ))}
+              </div>
+            )}
             <div className="mt-2 flex gap-2">
               <Button variant="primary" onClick={saveSettings} disabled={!settingsDirty}>
                 Simpan Template
               </Button>
               <Button
+                disabled={!loaded}
                 onClick={() => {
                   setSettings((s) => ({ ...s, template: defaultTemplate }));
                   setSettingsDirty(true);
@@ -756,7 +822,15 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               <span className="text-xs text-[#6f6858]">untuk: {previewName}</span>
             </div>
             <div className="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-[#dcf8c6] p-3 text-sm text-[#1f2a22] shadow-sm">
-              {renderMessage(settings.template, previewGuest ?? { name: previewName })}
+              {loaded ? (
+                renderMessage(settings.template, previewGuest ?? { name: previewName })
+              ) : (
+                <div className="flex flex-col gap-2.5 py-1">
+                  {["w-2/3", "w-1/3", "w-full", "w-5/6", "w-1/2"].map((width, idx) => (
+                    <SkeletonBar key={idx} className={`h-3.5 bg-[#c5e8ab] ${width}`} />
+                  ))}
+                </div>
+              )}
             </div>
             {previewGuest && (
               <div className="mt-3 flex gap-2">
@@ -818,7 +892,15 @@ export default function AdminPage() {
       </div>
     );
   }
-  if (!session) return <div className="admin-root min-h-screen bg-[#f6f3ee]" />;
+  if (!session) {
+    return (
+      <div className="admin-root flex min-h-screen items-center justify-center bg-[#f6f3ee] font-sans text-[#5c6158]" role="status">
+        <span className="inline-flex items-center gap-3 text-sm">
+          <Spinner className="h-5 w-5 text-[#24412f]" /> Memuat admin...
+        </span>
+      </div>
+    );
+  }
   if (!session.authenticated) return <LoginScreen configured={session.configured} onLoggedIn={checkSession} />;
 
   return (
