@@ -7,12 +7,21 @@ const DESCRIPTION = "Sabtu, 5 Desember 2026 · Menara BP Jamsostek, Jakarta Sela
 // Link previews (WhatsApp, Instagram, ...) need absolute image URLs. NEXT_PUBLIC_SITE_URL sets the public address
 // (e.g. a custom domain); on Vercel the production domain is used automatically. The share image itself is
 // app/opengraph-image.jpg.
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined);
+// Accepts values with or without a scheme ("nadia-jorgi.com" or "https://nadia-jorgi.com"); invalid values are ignored.
+const toUrl = (value: string | undefined) => {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  try {
+    return new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+  } catch {
+    return undefined;
+  }
+};
+
+const siteUrl = toUrl(process.env.NEXT_PUBLIC_SITE_URL) ?? toUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL);
 
 export const metadata: Metadata = {
-  ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
+  ...(siteUrl ? { metadataBase: siteUrl } : {}),
   title: TITLE,
   description: DESCRIPTION,
   openGraph: {
