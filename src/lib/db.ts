@@ -70,5 +70,17 @@ export const rateLimit = async (id: string, limit: number, windowSeconds: number
   return true;
 };
 
+// For logins: whether `id` still has attempts left, without using one up (record failures with rateLimit), so correct
+// logins never lock anyone out
+export const hasAttemptsLeft = async (id: string, limit: number, windowSeconds: number): Promise<boolean> => {
+  const sql = await getDb();
+  if (sql) {
+    const [row] = await sql<{ count: number }[]>`select count from rate_limits where key = ${id} and reset_at >= now()`;
+    return !row || row.count < limit;
+  }
+  const now = Date.now();
+  return (memoryHits.get(id) ?? []).filter((t) => now - t < windowSeconds * 1000).length < limit;
+};
+
 export const clientIp = (request: Request) =>
   request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip") || "unknown";

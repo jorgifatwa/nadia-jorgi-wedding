@@ -104,26 +104,46 @@ export const getGuest = async (id: string): Promise<Guest | null> => {
   return (await readJson<Guest[]>(GUESTS, [])).find((guest) => guest.id === id) ?? null;
 };
 
-// A person already on the list under exactly this name (ignoring case and spacing) in the same group. Names only have
-// to be unique within a group: the desk shows each member's group, so "Andi" of two groups can be told apart. Guests
-// outside any group (personal invitations, the general link, added at the desk) share one scope. Group invitations
-// themselves are not people and never count.
-export const findPersonByName = async (name: string, groupId: string | null = null): Promise<Guest | null> => {
-  const key = name.replace(/\s+/g, " ").trim().toLowerCase();
-  const sameScope = (guest: Guest) => !isGroupInvite(guest) && (guest.groupId ?? null) === groupId;
+// Names compare ignoring case and spacing
+const nameKey = (name: string) => name.replace(/\s+/g, " ").trim().toLowerCase();
+
+// Adds a person (QR taken from a group / general link, or added at the desk) unless someone in the same group already
+// has exactly this name. Names only have to be unique within a group: the desk shows each member's group, so "Andi"
+// of two groups can be told apart. Guests outside any group (personal invitations, the general link, added at the desk)
+// share one scope. Group invitations themselves are not people and never count. Check and insert happen under one lock,
+// so phones sending the same name at the same moment still get only one entry.
+export const addPersonIfNameFree = async (
+  name: string,
+  { source, groupId = null, checkedIn = false }: { source: "self" | "desk"; groupId?: string | null; checkedIn?: boolean },
+): Promise<{ guest: Guest; taken: false } | { guest: Guest; taken: true }> => {
+  const key = nameKey(name);
+  const sameScope = (guest: Guest) => !isGroupInvite(guest) && (guest.groupId ?? null) === groupId && nameKey(guest.name) === key;
+  const now = new Date().toISOString();
+  const entry: Guest = { id: randomUUID(), name, phone: null, createdAt: now, sentAt: null, source, checkedInAt: checkedIn ? now : null, groupId };
   const sql = await getDb();
   if (sql) {
-    const rows = await sql<GuestRow[]>`select * from guests where lower(regexp_replace(trim(name), '[[:space:]]+', ' ', 'g')) = ${key}`;
-    return rows.map(fromRow).find(sameScope) ?? null;
+    return sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(727275, hashtext(${`${groupId ?? ""}|${key}`}))`;
+      const rows = await tx<GuestRow[]>`select * from guests where lower(regexp_replace(trim(name), '[[:space:]]+', ' ', 'g')) = ${key}`;
+      const existing = rows.map(fromRow).find(sameScope);
+      if (existing) return { guest: existing, taken: true as const };
+      const [row] = await tx<GuestRow[]>`
+        insert into guests (id, name, phone, source, checked_in_at, group_id)
+        values (${entry.id}, ${name}, null, ${source}, ${entry.checkedInAt ?? null}, ${groupId})
+        returning *
+      `;
+      return { guest: fromRow(row), taken: false as const };
+    });
   }
-  const guests = await readJson<Guest[]>(GUESTS, []);
-  return guests.find((guest) => sameScope(guest) && guest.name.replace(/\s+/g, " ").trim().toLowerCase() === key) ?? null;
+  return updateJson<Guest[], { guest: Guest; taken: false } | { guest: Guest; taken: true }>(GUESTS, [], (guests) => {
+    const existing = guests.find(sameScope);
+    if (existing) return { data: guests, result: { guest: existing, taken: true } };
+    return { data: [...guests, entry], result: { guest: entry, taken: false } };
+  });
 };
 
-export const addGuests = async (
-  entries: { name: string; phone: string | null }[],
-  { source = "admin", checkedIn = false, groupId = null }: { source?: GuestSource; checkedIn?: boolean; groupId?: string | null } = {},
-): Promise<Guest[]> => {
+// Guests added in the admin (personal invitations, and group invitations: those without a number)
+export const addGuests = async (entries: { name: string; phone: string | null }[]): Promise<Guest[]> => {
   const now = new Date().toISOString();
   const added: Guest[] = entries.map((entry) => ({
     id: randomUUID(),
@@ -131,17 +151,16 @@ export const addGuests = async (
     phone: entry.phone,
     createdAt: now,
     sentAt: null,
-    source,
-    checkedInAt: checkedIn ? now : null,
-    groupId,
+    source: "admin",
+    checkedInAt: null,
+    groupId: null,
   }));
   const sql = await getDb();
   if (sql) {
     if (added.length === 0) return [];
-    // One multi-row insert; the identity column keeps the list order
-    const values = added.map(({ id, name, phone, checkedInAt }) => ({ id, name, phone, source, checked_in_at: checkedInAt, group_id: groupId }));
+    // One multi-row insert; the identity column keeps the list order (source etc. take their column defaults)
     const rows = await sql<GuestRow[]>`
-      insert into guests ${sql(values, "id", "name", "phone", "source", "checked_in_at", "group_id")}
+      insert into guests ${sql(added.map(({ id, name, phone }) => ({ id, name, phone })), "id", "name", "phone")}
       returning *
     `;
     return rows.map(fromRow);

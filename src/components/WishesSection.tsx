@@ -173,7 +173,7 @@ export const WishesSection: React.FC = () => {
     e.preventDefault();
     if (submitting) return;
 
-    const problem = validateWish({ name: nameLocked ? name.slice(0, NAME_MAX) : name, message, attendance });
+    const problem = validateWish({ name, message, attendance, nameFromGuestList: nameLocked });
     if (problem) {
       setError(problem);
       return;

@@ -1,5 +1,5 @@
 import { isAdminRequest, unauthorized } from "@/lib/adminAuth";
-import { addGuests, deleteGuest, listGuests, updateGuest } from "@/lib/guestsStore";
+import { addGuests, deleteGuest, getGuest, listGuests, updateGuest } from "@/lib/guestsStore";
 import { normalizePhone } from "@/lib/phone";
 import { cleanText } from "@/lib/wishValidation";
 import { withErrors } from "@/lib/apiHandler";
@@ -39,9 +39,13 @@ export const PATCH = withErrors(async (request: Request) => {
   const body = ((await request.json().catch(() => ({}))) ?? {}) as { id?: unknown; name?: unknown; phone?: unknown; sent?: unknown };
   if (typeof body.id !== "string") return Response.json({ error: "ID tamu wajib diisi." }, { status: 400 });
 
+  const current = await getGuest(body.id);
+  if (!current) return Response.json({ error: "Tamu tidak ditemukan." }, { status: 404 });
+
   const changes: { name?: string; phone?: string | null; sentAt?: string | null } = {};
   if (body.name !== undefined || body.phone !== undefined) {
-    const entry = parseEntry({ name: body.name, phone: body.phone });
+    // Fields left out keep their current value
+    const entry = parseEntry({ name: body.name ?? current.name, phone: body.phone !== undefined ? body.phone : (current.phone ?? "") });
     if (typeof entry === "string") return Response.json({ error: entry }, { status: 400 });
     Object.assign(changes, entry);
   }

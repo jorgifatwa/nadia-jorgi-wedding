@@ -1,5 +1,5 @@
 import { checkinUnauthorized, isCheckinRequest } from "@/lib/adminAuth";
-import { addGuests, checkInGuest, findPersonByName, getGuest, isGroupInvite, listGuests, updateGuest } from "@/lib/guestsStore";
+import { addPersonIfNameFree, checkInGuest, getGuest, isGroupInvite, listGuests, updateGuest } from "@/lib/guestsStore";
 import { cleanText } from "@/lib/wishValidation";
 import { withErrors } from "@/lib/apiHandler";
 
@@ -40,9 +40,8 @@ export const POST = withErrors(async (request: Request) => {
 
   const name = typeof body.name === "string" ? cleanText(body.name) : "";
   if (name.length < 2 || name.length > NAME_MAX) return Response.json({ error: `Nama tamu harus 2-${NAME_MAX} karakter.` }, { status: 400 });
-  const existing = await findPersonByName(name);
-  if (existing) return Response.json({ error: `"${existing.name}" sudah ada di daftar. Cari namanya, atau pakai nama yang berbeda.` }, { status: 409 });
-  const [guest] = await addGuests([{ name, phone: null }], { source: "desk", checkedIn: true });
+  const { guest, taken } = await addPersonIfNameFree(name, { source: "desk", checkedIn: true });
+  if (taken) return Response.json({ error: `"${guest.name}" sudah ada di daftar. Cari namanya, atau pakai nama yang berbeda.` }, { status: 409 });
   return Response.json({ guest, already: false }, { status: 201 });
 });
 

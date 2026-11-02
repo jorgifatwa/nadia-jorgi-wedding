@@ -21,6 +21,9 @@ export interface WishInput {
   name: string;
   message: string;
   attendance: string;
+  // The name comes from the admin's guest list (personal link), not from the guest: it isn't checked, since the admin
+  // may write names the form wouldn't accept ("Bapak Ahmad (Kantor)", longer than NAME_MAX, ...)
+  nameFromGuestList?: boolean;
 }
 
 // Words matched anywhere inside a word (long/unambiguous enough not to appear inside normal words).
@@ -73,14 +76,16 @@ const HAS_LETTER_PATTERN = /\p{L}/u;
 export const cleanText = (text: string) => text.replace(/\s+/g, " ").trim();
 
 // Returns an Indonesian error message for the first problem found, or null if the wish is acceptable
-export const validateWish = ({ name, message, attendance }: WishInput): string | null => {
+export const validateWish = ({ name, message, attendance, nameFromGuestList = false }: WishInput): string | null => {
   const cleanName = cleanText(name);
   const cleanMessage = message.trim();
 
-  if (cleanName.length < NAME_MIN) return "Nama wajib diisi (minimal 2 huruf).";
-  if (cleanName.length > NAME_MAX) return `Nama maksimal ${NAME_MAX} karakter.`;
-  if (!HAS_LETTER_PATTERN.test(cleanName) || !NAME_CHARS_PATTERN.test(cleanName)) {
-    return "Nama hanya boleh berisi huruf, angka, spasi, dan tanda baca sederhana.";
+  if (!nameFromGuestList) {
+    if (cleanName.length < NAME_MIN) return "Nama wajib diisi (minimal 2 huruf).";
+    if (cleanName.length > NAME_MAX) return `Nama maksimal ${NAME_MAX} karakter.`;
+    if (!HAS_LETTER_PATTERN.test(cleanName) || !NAME_CHARS_PATTERN.test(cleanName)) {
+      return "Nama hanya boleh berisi huruf, angka, spasi, dan tanda baca sederhana.";
+    }
   }
 
   if (!isAttendance(attendance)) return "Pilih konfirmasi kehadiran Anda (Hadir / Tidak Hadir).";
@@ -89,7 +94,7 @@ export const validateWish = ({ name, message, attendance }: WishInput): string |
   if (cleanMessage.length > MESSAGE_MAX) return `Ucapan maksimal ${MESSAGE_MAX} karakter.`;
   if (!HAS_LETTER_PATTERN.test(cleanMessage)) return "Ucapan harus berisi kata-kata.";
 
-  const combined = `${cleanName} ${cleanMessage}`;
+  const combined = nameFromGuestList ? cleanMessage : `${cleanName} ${cleanMessage}`;
   if (URL_PATTERN.test(combined) || EMAIL_PATTERN.test(combined)) return "Ucapan tidak boleh berisi link atau email.";
   if (PHONE_PATTERN.test(combined)) return "Ucapan tidak boleh berisi nomor telepon.";
   if (SPAM_REPEAT_PATTERN.test(combined)) return "Ucapan tidak boleh berisi karakter berulang yang berlebihan.";

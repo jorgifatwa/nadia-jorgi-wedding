@@ -1,8 +1,8 @@
 import { connection } from "next/server";
-import { getGuest, updateGuest } from "@/lib/guestsStore";
+import { getGuest, isGroupInvite, updateGuest } from "@/lib/guestsStore";
 import { addWish, listWishes, type Wish } from "@/lib/wishesStore";
 import { clientIp, rateLimit } from "@/lib/db";
-import { NAME_MAX, cleanText, isAttendance, validateWish } from "@/lib/wishValidation";
+import { cleanText, isAttendance, validateWish } from "@/lib/wishValidation";
 import { withErrors } from "@/lib/apiHandler";
 
 // One submission per visitor every 20 seconds
@@ -42,8 +42,7 @@ export const POST = withErrors(async (request: Request) => {
     return Response.json({ error: "Ucapan tidak dapat dikirim." }, { status: 400 });
   }
 
-  // Guest list names may be longer than the form allows (e.g. "Bapak Ahmad & Keluarga Besar")
-  const error = validateWish({ name: lockedName ? name.slice(0, NAME_MAX) : name, message, attendance: typeof attendance === "string" ? attendance : "" });
+  const error = validateWish({ name, message, attendance: typeof attendance === "string" ? attendance : "", nameFromGuestList: lockedName !== null });
   if (error || !isAttendance(attendance)) {
     return Response.json({ error: error ?? "Konfirmasi kehadiran tidak valid." }, { status: 400 });
   }
@@ -53,6 +52,7 @@ export const POST = withErrors(async (request: Request) => {
   }
 
   const wish = await addWish(cleanText(name), message.trim().replace(/\n{3,}/g, "\n\n"), attendance, guest?.id);
-  if (guest) await updateGuest(guest.id, { attendance, respondedAt: wish.createdAt });
+  // A group invitation's RSVP isn't one member's answer
+  if (guest && !isGroupInvite(guest)) await updateGuest(guest.id, { attendance, respondedAt: wish.createdAt });
   return Response.json({ wish: publicWish(wish) }, { status: 201 });
 });

@@ -56,6 +56,10 @@ Setelah online:
 - **Admin** (`/admin` → tab **Check-in**): atur PIN panitia (6 angka), salin link halaman penerima tamu, lihat siapa yang sudah datang, ekspor CSV.
 - **Panitia** (`/checkin` di HP, masuk dengan PIN): scan QR tamu dengan kamera, cari nama untuk tamu tanpa QR, atau tambah tamu yang belum ada di daftar. Bisa dipakai di beberapa HP sekaligus; mengganti PIN mengeluarkan semua HP panitia.
 
+## Pengujian
+
+`pnpm test:api` menjalankan kasus uji untuk semua fitur (ucapan, daftar tamu, template, login admin, PIN panitia, QR check-in, file kalender, halaman) terhadap server dev lokal. Uji ini menambah data tamu/ucapan dan mengatur PIN panitia ke `135790`, jadi cadangkan folder `data/` dulu dan kembalikan setelahnya. Skrip menolak berjalan ke alamat selain localhost.
+
 ## Struktur singkat
 
 | Lokasi | Isi |
@@ -64,4 +68,5 @@ Setelah online:
 | `src/app/api/` | API ucapan (`/api/wishes`), QR tamu (`/api/pass`), penerima tamu (`/api/checkin/*`) dan admin (`/api/admin/*`) |
 | `src/lib/` | Validasi ucapan, autentikasi admin, penyimpanan (Postgres / file JSON) |
 | `scripts/seed.mjs` | Seed tabel + akun admin (`pnpm db:seed`) |
+| `scripts/test-api.mjs` | Kasus uji API semua fitur (`pnpm test:api`) |
 | `public/` | Aset gambar, font, audio, animasi |

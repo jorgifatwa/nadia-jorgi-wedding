@@ -1,4 +1,4 @@
-import { addGuests, findPersonByName, getGuest, isGroupInvite } from "@/lib/guestsStore";
+import { addPersonIfNameFree, getGuest, isGroupInvite } from "@/lib/guestsStore";
 import { clientIp, rateLimit } from "@/lib/db";
 import { cleanText } from "@/lib/wishValidation";
 import { withErrors } from "@/lib/apiHandler";
@@ -20,7 +20,8 @@ export const POST = withErrors(async (request: Request) => {
   const invite = typeof group === "string" && group ? await getGuest(group) : null;
   const groupId = invite && isGroupInvite(invite) ? invite.id : null;
 
-  if (await findPersonByName(cleanName, groupId)) {
+  const { guest, taken } = await addPersonIfNameFree(cleanName, { source: "self", groupId });
+  if (taken) {
     return Response.json(
       {
         error: `Nama "${cleanName}" sudah terdaftar${groupId ? " di grup ini" : ""}. Gunakan nama lain, misalnya tambahkan nama belakang atau asal Anda.`,
@@ -28,6 +29,5 @@ export const POST = withErrors(async (request: Request) => {
       { status: 409 },
     );
   }
-  const [guest] = await addGuests([{ name: cleanName, phone: null }], { source: "self", groupId });
   return Response.json({ id: guest.id, name: guest.name }, { status: 201 });
 });

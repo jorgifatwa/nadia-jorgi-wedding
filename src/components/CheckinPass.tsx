@@ -31,13 +31,21 @@ const readStoredPass = (): Pass | null => {
   }
 };
 
+const forgetStoredPass = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {}
+};
+
 const passLink = (pass: Pass) => `${window.location.origin}/?to=${encodeURIComponent(pass.name)}&g=${pass.id}`;
 
 export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [pass, setPass] = useState<Pass | null>(null);
   const [qr, setQr] = useState<string | null>(null);
-  // "loading" while the personal link's guest is looked up, then the QR or the name form
-  const [view, setView] = useState<"loading" | "form" | "pass">("loading");
+  // "loading" while the link's guest is looked up, then the QR or the name form; "offline" when the lookup failed
+  const [view, setView] = useState<"loading" | "form" | "pass" | "offline">("loading");
+  // Bumped by "Coba lagi" to look the link up again
+  const [attempt, setAttempt] = useState(0);
   const [name, setName] = useState("");
   // The group invitation whose link this is, if any: new QRs are filed under it
   const [group, setGroup] = useState<{ id: string; name: string } | null>(null);
@@ -48,9 +56,12 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
     let cancelled = false;
     const start = setTimeout(async () => {
       const id = new URLSearchParams(window.location.search).get("g")?.trim();
+      // Without an answer about the link (offline, server busy) a personal guest must not be sent to the name form
+      let lookupFailed = false;
       if (id) {
         try {
           const res = await fetch(`/api/wishes/guest?g=${encodeURIComponent(id)}`, { cache: "no-store" });
+          if (!res.ok && res.status !== 404) lookupFailed = true;
           if (res.ok) {
             // `locked`: the guest has a WhatsApp number, so this is one person's own link
             const data = (await res.json()) as { name: string; locked: boolean };
@@ -63,23 +74,35 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
             setGroup({ id, name: data.name });
           }
         } catch {
-          // Treat it as the general link
+          lookupFailed = true;
         }
       }
       if (cancelled) return;
-      const stored = readStoredPass();
+      let stored = readStoredPass();
+      if (stored) {
+        // The admin may have removed this entry since (its QR would then be refused at the desk): start over. Offline,
+        // the stored QR is still shown.
+        try {
+          const res = await fetch(`/api/wishes/guest?g=${encodeURIComponent(stored.id)}`, { cache: "no-store" });
+          if (res.status === 404) {
+            forgetStoredPass();
+            stored = null;
+          }
+        } catch {}
+      }
+      if (cancelled) return;
       if (stored) {
         setPass(stored);
         setView("pass");
       } else {
-        setView("form");
+        setView(lookupFailed ? "offline" : "form");
       }
     }, 0);
     return () => {
       cancelled = true;
       clearTimeout(start);
     };
-  }, []);
+  }, [attempt]);
 
   useEffect(() => {
     if (!pass) return;
@@ -129,9 +152,7 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
   };
 
   const redo = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {}
+    forgetStoredPass();
     setName("");
     setPass(null);
     setQr(null);
@@ -147,6 +168,22 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
         <p style={{ fontFamily: SCRIPT_FONT, fontSize: 40, lineHeight: "52px", margin: 0 }}>QR Check-in</p>
 
         {view === "loading" && <p className="checkin-pass-note">Memuat...</p>}
+
+        {view === "offline" && (
+          <>
+            <p className="checkin-pass-note">QR belum bisa dimuat. Periksa koneksi internet Anda, lalu coba lagi.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setView("loading");
+                setAttempt((n) => n + 1);
+              }}
+              className="checkin-pass-button"
+            >
+              Coba lagi
+            </button>
+          </>
+        )}
 
         {view === "form" && (
           <form onSubmit={createPass} style={{ marginTop: 8 }}>

@@ -122,7 +122,9 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
   useEffect(() => {
     const guest = new URLSearchParams(window.location.search).get("to")?.trim();
     if (!guest) return;
-    const show = setTimeout(() => setGuestName(guest.slice(0, 80)), 0);
+    // Admin names are at most 80 characters; a longer hand-edited link is cut at a word, not mid-word
+    const shown = guest.length <= 80 ? guest : `${guest.slice(0, 80).replace(/\s+\S*$/, "")}…`;
+    const show = setTimeout(() => setGuestName(shown), 0);
     return () => clearTimeout(show);
   }, []);
 
