@@ -17,13 +17,8 @@ export const CLOSED_REST_CLIP = "polygon(0% 1.9%, 50% 68%, 100% 1.9%, 100% 100%,
 const CLOSED_MARGIN_X = 0.02;
 const CLOSED_MARGIN_Y = 0.019;
 
-// Paper box of a closed-envelope image placed at `box`, and the image box whose paper covers `paper`
+// Paper box of a closed-envelope image placed at `box`
 export const closedPaper = ([x, y, w, h]: Box): Box => [x + w * CLOSED_MARGIN_X, y + h * CLOSED_MARGIN_Y, w * (1 - 2 * CLOSED_MARGIN_X), h * (1 - 2 * CLOSED_MARGIN_Y)];
-export const closedEnvelopeFor = ([x, y, w, h]: Box): Box => {
-  const imgW = w / (1 - 2 * CLOSED_MARGIN_X);
-  const imgH = h / (1 - 2 * CLOSED_MARGIN_Y);
-  return [x - imgW * CLOSED_MARGIN_X, y - imgH * CLOSED_MARGIN_Y, imgW, imgH];
-};
 
 // Extra attributes (e.g. data-*) are passed on to the outer element
 type DivAttributes = Omit<React.HTMLAttributes<HTMLDivElement>, "children">;

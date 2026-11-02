@@ -16,20 +16,31 @@ export const RevealObserver: React.FC = () => {
     const root = document.documentElement;
     root.classList.add("reveal-ready");
 
-    const io = new IntersectionObserver(
+    const reveal: IntersectionObserverCallback = (entries, observer) => {
+      entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top || a.boundingClientRect.left - b.boundingClientRect.left)
+        .forEach((entry, idx) => {
+          const el = entry.target as HTMLElement;
+          el.style.transitionDelay = `${Math.min(idx, MAX_STAGGER_STEPS) * STAGGER_MS}ms`;
+          el.addEventListener("transitionend", () => (el.style.transitionDelay = ""), { once: true });
+          el.dataset.revealed = "";
+          observer.unobserve(el);
+        });
+    };
+    const io = new IntersectionObserver(reveal, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+    // Pop-up pieces wait until the venue is well up the screen, so the guest is looking when it unfolds, and then all
+    // unfold together (each piece's --reveal-delay sets the order: base, building, wings, trees)
+    const ioPopup = new IntersectionObserver(
       (entries) => {
-        entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top || a.boundingClientRect.left - b.boundingClientRect.left)
-          .forEach((entry, idx) => {
-            const el = entry.target as HTMLElement;
-            el.style.transitionDelay = `${Math.min(idx, MAX_STAGGER_STEPS) * STAGGER_MS}ms`;
-            el.addEventListener("transitionend", () => (el.style.transitionDelay = ""), { once: true });
-            el.dataset.revealed = "";
-            io.unobserve(el);
-          });
+        const started = entries.find((entry) => entry.isIntersecting);
+        if (!started) return;
+        started.target.parentElement?.querySelectorAll<HTMLElement>(':scope > [data-reveal^="popup"]').forEach((el) => {
+          el.dataset.revealed = "";
+          ioPopup.unobserve(el);
+        });
       },
-      { threshold: 0.12, rootMargin: "0px 0px -6% 0px" },
+      { threshold: 0.5, rootMargin: "0px 0px -40% 0px" },
     );
 
     // Sections can mount later (the invitation renders after the envelope is opened), so rescan on DOM changes
@@ -40,7 +51,7 @@ export const RevealObserver: React.FC = () => {
       document.querySelectorAll(TARGETS).forEach((el) => {
         if (observed.has(el)) return;
         observed.add(el);
-        io.observe(el);
+        (el.matches('[data-reveal^="popup"]') ? ioPopup : io).observe(el);
       });
     };
     scan();
@@ -51,6 +62,7 @@ export const RevealObserver: React.FC = () => {
 
     return () => {
       io.disconnect();
+      ioPopup.disconnect();
       mo.disconnect();
       cancelAnimationFrame(frame);
       root.classList.remove("reveal-ready");
