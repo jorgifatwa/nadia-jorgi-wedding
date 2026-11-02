@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
+import { useToast } from "./Toast";
 import { ATTENDANCE_OPTIONS, MESSAGE_MAX, NAME_MAX, attendanceLabel, validateWish, type Attendance } from "@/lib/wishValidation";
 
 interface Wish {
@@ -110,7 +111,9 @@ export const WishesSection: React.FC = () => {
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [newWishId, setNewWishId] = useState<string | null>(null);
-  const [status, setStatus] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  // Problems are shown under the form; a successful send is announced with a toast, like the copied account number
+  const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const loadWishes = useCallback(async () => {
@@ -170,14 +173,14 @@ export const WishesSection: React.FC = () => {
     e.preventDefault();
     if (submitting) return;
 
-    const error = validateWish({ name: nameLocked ? name.slice(0, NAME_MAX) : name, message, attendance });
-    if (error) {
-      setStatus({ kind: "error", text: error });
+    const problem = validateWish({ name: nameLocked ? name.slice(0, NAME_MAX) : name, message, attendance });
+    if (problem) {
+      setError(problem);
       return;
     }
 
     setSubmitting(true);
-    setStatus(null);
+    setError(null);
     listRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     const started = Date.now();
     try {
@@ -189,7 +192,7 @@ export const WishesSection: React.FC = () => {
       const data = (await res.json()) as { wish?: Wish; error?: string };
       await new Promise((resolve) => setTimeout(resolve, Math.max(0, MIN_LOADING_MS - (Date.now() - started))));
       if (!res.ok || !data.wish) {
-        setStatus({ kind: "error", text: data.error ?? "Ucapan gagal dikirim, silakan coba lagi." });
+        setError(data.error ?? "Ucapan gagal dikirim, silakan coba lagi.");
         return;
       }
       const newWish = data.wish;
@@ -197,9 +200,9 @@ export const WishesSection: React.FC = () => {
       setNewWishId(newWish.id);
       setMessage("");
       setAttendance("");
-      setStatus({ kind: "success", text: "Terima kasih, ucapan Anda sudah terkirim!" });
+      showToast("Terima kasih, ucapan Anda sudah terkirim!");
     } catch {
-      setStatus({ kind: "error", text: "Koneksi bermasalah, silakan coba lagi." });
+      setError("Koneksi bermasalah, silakan coba lagi.");
     } finally {
       setSubmitting(false);
     }
@@ -347,17 +350,17 @@ export const WishesSection: React.FC = () => {
             {submitting ? "Mengirim..." : "Kirim Ucapan"}
           </button>
           <div
-            role="status"
+            role="alert"
             aria-live="polite"
             style={{
               minHeight: u(20),
               textAlign: "center",
               fontFamily: BODY_FONT,
               fontSize: u(15),
-              color: status?.kind === "error" ? "#ffd2c8" : "#e6f2d4",
+              color: "#ffd2c8",
             }}
           >
-            {status?.text}
+            {error}
           </div>
         </form>
 
