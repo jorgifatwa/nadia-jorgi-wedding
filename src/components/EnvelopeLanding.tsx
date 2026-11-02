@@ -5,7 +5,21 @@ import confetti from "canvas-confetti";
 import { useWeddingAudio } from "./WeddingAudio";
 import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
-import { ENVELOPE_BODY, ENVELOPE_BOTTOM_Y, ENVELOPE_HINGE_Y, EnvelopeBack, EnvelopeFront, EnvelopeLining, LaceCard, Verse } from "./introEnvelope";
+import {
+  CLOSED_FLAP_CLIP,
+  CLOSED_REST_CLIP,
+  ClosedEnvelopePart,
+  ENVELOPE_BODY,
+  ENVELOPE_BOTTOM_Y,
+  ENVELOPE_HINGE_Y,
+  EnvelopeBack,
+  EnvelopeFront,
+  EnvelopeLining,
+  LaceCard,
+  Slice,
+  Verse,
+  closedPaper,
+} from "./introEnvelope";
 
 interface EnvelopeLandingProps {
   // Called when Section 1 should be mounted underneath (the transition's last frame matches it)
@@ -23,13 +37,10 @@ const BG: [x: number, y: number, w: number, h: number] = [-112.86, -17.74, 597.0
 const TEXT_COLOR = "#fdf9f6";
 const SAVE_THE_DATE_FONT = "'SaveTheDateLocal', 'Pinyon Script', cursive";
 
-// Closed envelope on the landing canvas. The flap (a triangle down to the lace tip at 67% of the height) is cut out of
-// the same image so it can fold open on its own.
+// Closed envelope on the landing canvas
 const CLOSED_ENVELOPE: [x: number, y: number, w: number, h: number] = [81.93, 328.6, 276.13, 185.34];
-const CLOSED_FLAP_CLIP = "polygon(0% 0%, 100% 0%, 100% 1.9%, 50% 68%, 0% 1.9%)";
-const CLOSED_REST_CLIP = "polygon(0% 1.9%, 50% 68%, 100% 1.9%, 100% 100%, 0% 100%)";
-// Paper edges of the closed envelope inside its image (2% / 1.9% transparent margins)
-const CLOSED_PAPER = { x: 87.4, y: 332.1, w: 265.1, h: 178.1 };
+const [paperX, paperY, paperW, paperH] = closedPaper(CLOSED_ENVELOPE);
+const CLOSED_PAPER = { x: paperX, y: paperY, w: paperW, h: paperH };
 
 // The opened envelope starts drawn over the closed one (in Section 1 coordinates, scaled and moved onto the landing
 // envelope) and travels to its Section 1 place. The landing canvas is centred, so its top is 50cqh - half its height.
@@ -98,42 +109,6 @@ const canvasStyle: React.CSSProperties = {
   transform: "translate(-50%, -50%)",
   containerType: "inline-size",
 };
-
-// Closed envelope part cut by `clipPath`, at the landing envelope's place
-const ClosedEnvelopePart: React.FC<{ clipPath: string; className: string }> = ({ clipPath, className }) => (
-  <div
-    className={className}
-    style={{
-      position: "absolute",
-      left: u(CLOSED_ENVELOPE[0]),
-      top: u(CLOSED_ENVELOPE[1]),
-      width: u(CLOSED_ENVELOPE[2]),
-      height: u(CLOSED_ENVELOPE[3]),
-      clipPath,
-      pointerEvents: "none",
-    }}
-  >
-    {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img
-      src={`${MEDIA}/7b6f2605f13843668eef811673008950.png`}
-      alt={className === "env-flap" ? "" : "Closed Envelope"}
-      draggable={false}
-      style={{ width: "100%", height: "100%", display: "block" }}
-    />
-  </div>
-);
-
-// Box in Section 1 coordinates holding a slice of the full Section 1 canvas (children keep Section 1 coordinates). Its own
-// compositing layer, so the slice is cut after its layers are combined: cut separately, the cream envelope back would
-// bleed through the lining along the cut edge as a light line.
-const Slice: React.FC<{ top: number; height: number; className?: string; children: React.ReactNode }> = ({ top, height, className, children }) => (
-  <div
-    className={className}
-    style={{ position: "absolute", left: 0, top: u(top), width: "100%", height: u(height), overflow: "hidden", willChange: "transform" }}
-  >
-    <div style={{ position: "absolute", left: 0, top: u(-top), width: "100%", height: u(SECTION1_H) }}>{children}</div>
-  </div>
-);
 
 export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFinished, coupleNames = "Nadia & Jorgi" }) => {
   const { playAudio } = useWeddingAudio();
@@ -362,12 +337,12 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
             ...travelFrom,
           }}
         >
-          <Slice top={0} height={ENVELOPE_HINGE_Y} className="env-open-flap">
+          <Slice top={0} height={ENVELOPE_HINGE_Y} canvasHeight={SECTION1_H} className="env-open-flap">
             <EnvelopeBack />
             <EnvelopeLining />
           </Slice>
           {/* The body slice starts 1px above the hinge so no seam shows between the slices while the envelope is scaled */}
-          <Slice top={ENVELOPE_HINGE_Y - 1} height={SECTION1_H - ENVELOPE_HINGE_Y + 1}>
+          <Slice top={ENVELOPE_HINGE_Y - 1} height={SECTION1_H - ENVELOPE_HINGE_Y + 1} canvasHeight={SECTION1_H}>
             <EnvelopeBack />
             <EnvelopeLining />
           </Slice>
@@ -383,8 +358,8 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
 
       {/* Layer 4: the closed envelope (body and foldable flap), its sparkles, wax seal and florals */}
       <div style={canvasStyle} className="reveal-scope">
-        <ClosedEnvelopePart clipPath={CLOSED_REST_CLIP} className="env-closed-rest" />
-        <ClosedEnvelopePart clipPath={CLOSED_FLAP_CLIP} className="env-flap" />
+        <ClosedEnvelopePart box={CLOSED_ENVELOPE} clipPath={CLOSED_REST_CLIP} className="env-closed-rest" />
+        <ClosedEnvelopePart box={CLOSED_ENVELOPE} clipPath={CLOSED_FLAP_CLIP} className="env-flap" />
         <div className="env-fade" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
           <TiltedSparkle center={[340.945, 347.035]} />
           <TiltedSparkle center={[96.825, 513.955]} />

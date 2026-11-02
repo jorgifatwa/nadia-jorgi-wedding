@@ -9,6 +9,55 @@ export const ENVELOPE_HINGE_Y = 531;
 export const ENVELOPE_BOTTOM_Y = 722;
 export const ENVELOPE_BODY: Box = [68.3, ENVELOPE_HINGE_Y, 301.3, ENVELOPE_BOTTOM_Y - ENVELOPE_HINGE_Y];
 
+// Closed envelope (back view, flap down). Its flap is a triangle down to the lace tip at 68% of the image height, cut
+// out of the same image so it can fold on its own; the paper sits inside 2% / 1.9% transparent margins.
+export const CLOSED_ENVELOPE_SRC = `${MEDIA}/7b6f2605f13843668eef811673008950.png`;
+export const CLOSED_FLAP_CLIP = "polygon(0% 0%, 100% 0%, 100% 1.9%, 50% 68%, 0% 1.9%)";
+export const CLOSED_REST_CLIP = "polygon(0% 1.9%, 50% 68%, 100% 1.9%, 100% 100%, 0% 100%)";
+const CLOSED_MARGIN_X = 0.02;
+const CLOSED_MARGIN_Y = 0.019;
+
+// Paper box of a closed-envelope image placed at `box`, and the image box whose paper covers `paper`
+export const closedPaper = ([x, y, w, h]: Box): Box => [x + w * CLOSED_MARGIN_X, y + h * CLOSED_MARGIN_Y, w * (1 - 2 * CLOSED_MARGIN_X), h * (1 - 2 * CLOSED_MARGIN_Y)];
+export const closedEnvelopeFor = ([x, y, w, h]: Box): Box => {
+  const imgW = w / (1 - 2 * CLOSED_MARGIN_X);
+  const imgH = h / (1 - 2 * CLOSED_MARGIN_Y);
+  return [x - imgW * CLOSED_MARGIN_X, y - imgH * CLOSED_MARGIN_Y, imgW, imgH];
+};
+
+// Extra attributes (e.g. data-*) are passed on to the outer element
+type DivAttributes = Omit<React.HTMLAttributes<HTMLDivElement>, "children">;
+
+// Closed envelope part cut by `clipPath` (the flap or the rest), placed at `box`
+export const ClosedEnvelopePart: React.FC<DivAttributes & { box: Box; clipPath: string }> = ({ box, clipPath, style, ...rest }) => (
+  <div
+    {...rest}
+    style={{ position: "absolute", left: u(box[0]), top: u(box[1]), width: u(box[2]), height: u(box[3]), clipPath, pointerEvents: "none", ...style }}
+  >
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img src={CLOSED_ENVELOPE_SRC} alt="" draggable={false} style={{ width: "100%", height: "100%", display: "block" }} />
+  </div>
+);
+
+// Horizontal band [top, top + height) of a canvas `canvasHeight` tall; children keep the canvas coordinates. Its own
+// compositing layer, so the band is cut after its layers are combined: cut separately, the cream envelope back would
+// bleed through the lining along the cut edge as a light line.
+export const Slice: React.FC<DivAttributes & { top: number; height: number; canvasHeight: number; children: React.ReactNode }> = ({
+  top,
+  height,
+  canvasHeight,
+  style,
+  children,
+  ...rest
+}) => (
+  <div
+    {...rest}
+    style={{ position: "absolute", left: 0, top: u(top), width: "100%", height: u(height), overflow: "hidden", willChange: "transform", ...style }}
+  >
+    <div style={{ position: "absolute", left: 0, top: u(-top), width: "100%", height: u(canvasHeight) }}>{children}</div>
+  </div>
+);
+
 const LINING_CLIP =
   "polygon(49.68% 0%, 51.01% 0.11%, 52.25% 0.84%, 73% 19.99%, 88.5% 35.08%, 100% 47.16%, 99.91% 47.27%, 99.95% 99.72%, 99.77% 100%, 0.23% 100%, 0.09% 99.89%, 0% 99.67%, 0.05% 47.22%, 6.21% 41.04%, 20.01% 27.84%, 31.74% 16.37%, 46.23% 2.78%, 47.88% 1%, 48.99% 0.22%)";
 
