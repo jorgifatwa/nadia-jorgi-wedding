@@ -52,7 +52,7 @@ Setelah online:
 
 ## QR check-in di lokasi
 
-- **Tamu**: tombol **QR Check-in** di bawah hitung mundur. Dari link pribadi (tamu yang diisi nomor WhatsApp) QR langsung tampil atas nama tamu. Tamu tanpa nomor dianggap **undangan grup**: setiap anggota grup yang membuka link-nya mengetik namanya sendiri sekali, QR tersimpan di HP-nya, dan namanya masuk daftar dengan asal "Grup: <nama grup>" (dari link polos: "Link umum"). Nama harus unik; nama yang sudah terdaftar ditolak dan tamu diminta memakai nama lain.
+- **Tamu**: tombol **QR Check-in** di bawah hitung mundur. Dari link pribadi (tamu yang diisi nomor WhatsApp) QR langsung tampil atas nama tamu. Tamu tanpa nomor dianggap **undangan grup**: setiap anggota grup yang membuka link-nya mengetik namanya sendiri sekali, QR tersimpan di HP-nya, dan namanya masuk daftar dengan asal "Grup: <nama grup>" (dari link polos: "Link umum"). Nama harus unik di dalam satu grup (nama sama di grup berbeda boleh, panitia membedakannya lewat keterangan grup); nama yang sudah terdaftar ditolak dan tamu diminta memakai nama lain.
 - **Admin** (`/admin` → tab **Check-in**): atur PIN panitia (6 angka), salin link halaman penerima tamu, lihat siapa yang sudah datang, ekspor CSV.
 - **Panitia** (`/checkin` di HP, masuk dengan PIN): scan QR tamu dengan kamera, cari nama untuk tamu tanpa QR, atau tambah tamu yang belum ada di daftar. Bisa dipakai di beberapa HP sekaligus; mengganti PIN mengeluarkan semua HP panitia.
 

@@ -339,7 +339,8 @@ const Desk: React.FC<{ onLoggedOut: () => void }> = ({ onLoggedOut }) => {
       .sort((a, b) => Number(!a.name.toLowerCase().startsWith(q)) - Number(!b.name.toLowerCase().startsWith(q)) || a.name.localeCompare(b.name))
       .slice(0, SEARCH_LIMIT);
   }, [guests, q]);
-  const exactMatch = guests.some((g) => g.name.toLowerCase() === q);
+  // A desk-added guest belongs to no group, so only a same-named guest outside any group blocks adding the name
+  const exactMatch = guests.some((g) => !g.group && g.name.toLowerCase().replace(/\s+/g, " ") === q.replace(/\s+/g, " "));
 
   return (
     <div className="admin-root min-h-dvh bg-[#f6f3ee] font-sans text-[#1f2a22]">

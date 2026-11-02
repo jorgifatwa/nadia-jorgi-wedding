@@ -104,16 +104,20 @@ export const getGuest = async (id: string): Promise<Guest | null> => {
   return (await readJson<Guest[]>(GUESTS, [])).find((guest) => guest.id === id) ?? null;
 };
 
-// A person already on the list under exactly this name (ignoring case and spacing); group invitations don't count
-export const findPersonByName = async (name: string): Promise<Guest | null> => {
+// A person already on the list under exactly this name (ignoring case and spacing) in the same group. Names only have
+// to be unique within a group: the desk shows each member's group, so "Andi" of two groups can be told apart. Guests
+// outside any group (personal invitations, the general link, added at the desk) share one scope. Group invitations
+// themselves are not people and never count.
+export const findPersonByName = async (name: string, groupId: string | null = null): Promise<Guest | null> => {
   const key = name.replace(/\s+/g, " ").trim().toLowerCase();
+  const sameScope = (guest: Guest) => !isGroupInvite(guest) && (guest.groupId ?? null) === groupId;
   const sql = await getDb();
   if (sql) {
     const rows = await sql<GuestRow[]>`select * from guests where lower(regexp_replace(trim(name), '[[:space:]]+', ' ', 'g')) = ${key}`;
-    return rows.map(fromRow).find((guest) => !isGroupInvite(guest)) ?? null;
+    return rows.map(fromRow).find(sameScope) ?? null;
   }
   const guests = await readJson<Guest[]>(GUESTS, []);
-  return guests.find((guest) => !isGroupInvite(guest) && guest.name.replace(/\s+/g, " ").trim().toLowerCase() === key) ?? null;
+  return guests.find((guest) => sameScope(guest) && guest.name.replace(/\s+/g, " ").trim().toLowerCase() === key) ?? null;
 };
 
 export const addGuests = async (
