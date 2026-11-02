@@ -10,7 +10,28 @@ export const MEDIA = "/drapery_assets/media";
 export type Box = [x: number, y: number, w: number, h: number];
 
 // Scroll-reveal entrance of an element (see the data-reveal rules in globals.css)
-export type Reveal = "zoom" | "left" | "right" | "rise" | "drop" | "sway" | "sway-right" | "pop" | "blur" | "swing" | "flip" | "wipe" | "tilt-left" | "tilt-right";
+export type Reveal =
+  | "zoom"
+  | "left"
+  | "right"
+  | "rise"
+  | "drop"
+  | "sway"
+  | "sway-right"
+  | "pop"
+  | "blur"
+  | "swing"
+  | "flip"
+  | "wipe"
+  | "tilt-left"
+  | "tilt-right"
+  | "popup-up"
+  | "popup-left"
+  | "popup-right";
+
+// Scroll parallax of foreground flowers (ParallaxObserver): hanging ones only ever drift up (their cut top edge stays
+// out of sight above the section), floor ones only down
+export type Parallax = "hanging" | "floor";
 
 // Image placed at `img` box, visible only inside `clip` box (both in canvas coordinates), optionally shaped by `clipPath`
 export const ClippedImage: React.FC<{
@@ -24,13 +45,18 @@ export const ClippedImage: React.FC<{
   // Backgrounds opt out of the scroll-reveal animation; other images reveal with a soft zoom unless `reveal` says otherwise
   skipReveal?: boolean;
   reveal?: Reveal;
+  // Extra delay of the entrance animation, in ms (pop-up pieces)
+  revealDelay?: number;
+  parallax?: Parallax;
   className?: string;
-}> = ({ src, alt, img, clip = img, clipPath, objectFit, flipX, skipReveal, reveal = "zoom", className }) => (
+}> = ({ src, alt, img, clip = img, clipPath, objectFit, flipX, skipReveal, reveal = "zoom", revealDelay, parallax, className }) => (
   <div
     className={className}
     data-reveal={skipReveal ? undefined : reveal}
     data-reveal-skip={skipReveal ? "" : undefined}
+    data-parallax={parallax}
     style={{
+      ...(revealDelay ? ({ "--reveal-delay": `${revealDelay}ms` } as React.CSSProperties) : {}),
       position: "absolute",
       left: u(clip[0]),
       top: u(clip[1]),

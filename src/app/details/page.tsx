@@ -11,6 +11,7 @@ import { GallerySection } from "@/components/GallerySection";
 import { WishesSection } from "@/components/WishesSection";
 import { RevealObserver } from "@/components/RevealObserver";
 import { ContentGuard } from "@/components/ContentGuard";
+import { ParallaxObserver } from "@/components/ParallaxObserver";
 import { ClosingSection } from "@/components/ClosingSection";
 
 export default function DetailsPage() {
@@ -19,6 +20,7 @@ export default function DetailsPage() {
       <ToastProvider>
         <RevealObserver />
         <ContentGuard />
+        <ParallaxObserver />
         <main
           // Pinned to the screen edges rather than sized with vh/dvh: iOS Safari's floating toolbars make dvh shorter
           // than the visible area, which left a dark band under the invitation

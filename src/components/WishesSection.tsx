@@ -242,6 +242,7 @@ export const WishesSection: React.FC = () => {
         img={[-34.35, -23.84, 145.03, 181.3]}
         clip={[0, 0, 110.68, 157.46]}
         reveal="sway"
+        parallax="hanging"
       />
       <ClippedImage
         src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
@@ -250,6 +251,7 @@ export const WishesSection: React.FC = () => {
         clip={[302.3, 0, 137.7, 202.34]}
         flipX
         reveal="sway-right"
+        parallax="hanging"
       />
 
       {/* 3. Title, subtitle and sparkles */}
@@ -461,6 +463,7 @@ export const WishesSection: React.FC = () => {
         img={[280.36, CANVAS_H - 215.04, 202.88, 253.59]}
         clip={[352.72, CANVAS_H - 124.54, 87.28, 124.54]}
         reveal="rise"
+        parallax="floor"
       />
     </section>
   );

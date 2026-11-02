@@ -191,12 +191,12 @@ export const EventSection: React.FC<EventSectionProps> = ({
       <p data-reveal="rise" style={textStyle([146.37, 463.74, 157.44], BODY_FONT, 21.43, 29.97, { bold: true, renderScale: 0.483403 })}>{year}</p>
 
       {/* 4. Venue illustration: wings, centre building, cypress trees, fountain */}
-      <ClippedImage src={`${MEDIA}/c7b9a8e80ff07fc9427f8bce49e38276.png`} alt="" img={[49.09, 536.34, 118.17, 123.86]} reveal="rise" />
-      <ClippedImage src={`${MEDIA}/6cbd981383bb0be28a2f55c68fb11767.png`} alt="" img={[272.74, 536.34, 118.17, 123.86]} reveal="rise" />
-      <ClippedImage src={`${MEDIA}/6a46472959bb93e40e93e6f7e53db377.png`} alt="Venue Illustration" img={[158.94, 552.97, 126.05, 94.09]} reveal="rise" />
-      <ClippedImage src={`${MEDIA}/061bb6589fe36bb9f07745260df53b3a.png`} alt="" img={[155, 573.1, 28, 77.03]} reveal="rise" />
-      <ClippedImage src={`${MEDIA}/edb61eab0272fcfcb100ac74f196fa4b.png`} alt="" img={[256.98, 573.1, 31.94, 77.03]} reveal="rise" />
-      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.png`} alt="" img={[96.36, 643.13, 247.28, 33.69]} reveal="wipe" />
+      <ClippedImage src={`${MEDIA}/c7b9a8e80ff07fc9427f8bce49e38276.png`} alt="" img={[49.09, 536.34, 118.17, 123.86]} reveal="popup-left" revealDelay={350} />
+      <ClippedImage src={`${MEDIA}/6cbd981383bb0be28a2f55c68fb11767.png`} alt="" img={[272.74, 536.34, 118.17, 123.86]} reveal="popup-right" revealDelay={350} />
+      <ClippedImage src={`${MEDIA}/6a46472959bb93e40e93e6f7e53db377.png`} alt="Venue Illustration" img={[158.94, 552.97, 126.05, 94.09]} reveal="popup-up" revealDelay={150} />
+      <ClippedImage src={`${MEDIA}/061bb6589fe36bb9f07745260df53b3a.png`} alt="" img={[155, 573.1, 28, 77.03]} reveal="popup-up" revealDelay={650} />
+      <ClippedImage src={`${MEDIA}/edb61eab0272fcfcb100ac74f196fa4b.png`} alt="" img={[256.98, 573.1, 31.94, 77.03]} reveal="popup-up" revealDelay={720} />
+      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.png`} alt="" img={[96.36, 643.13, 247.28, 33.69]} reveal="popup-up" />
 
       {/* 5. Akad details */}
       <p data-reveal="blur" style={textStyle([69.69, 741.57, 300.63], SCRIPT_FONT, 51.556, 72.15)}>Akad</p>

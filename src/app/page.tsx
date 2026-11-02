@@ -12,6 +12,7 @@ import { GallerySection } from "@/components/GallerySection";
 import { WishesSection } from "@/components/WishesSection";
 import { RevealObserver } from "@/components/RevealObserver";
 import { ContentGuard } from "@/components/ContentGuard";
+import { ParallaxObserver } from "@/components/ParallaxObserver";
 import { ClosingSection } from "@/components/ClosingSection";
 
 export default function Home() {
@@ -24,6 +25,7 @@ export default function Home() {
       <ToastProvider>
         <RevealObserver />
         <ContentGuard />
+        <ParallaxObserver />
         {/* On Desktop/PC: Centered clean mobile view on sleek dark luxury backdrop */}
         {/* On Mobile: 100% full screen view without any white bars */}
         <main

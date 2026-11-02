@@ -145,6 +145,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
         img={[-149.38, 513.26, 277.59, 346.98]}
         clip={[0, 637.08, 128.22, 183.97]}
         reveal="rise"
+        parallax="floor"
       />
 
       {/* 8. Bottom-right bouquet: lower part in this section, continuation overlapping the top of Section 3 */}

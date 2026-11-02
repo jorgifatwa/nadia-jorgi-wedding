@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useToast } from "@/components/Toast";
-import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
+import { ClippedImage, MEDIA, canvasText, u, type Box } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
 
 export interface BankAccount {
@@ -37,6 +37,32 @@ const ACCOUNT_LAYOUT = [
   { x: 44, numberY: 398.56, bankY: 432.86, holderY: 457.09, copyY: 495.37 },
   { x: 39.18, numberY: 546.55, bankY: 577.92, holderY: 602.15, copyY: 640.43 },
 ];
+
+// Gift box drawing in two layers cut along the lid's lower edge, so the lid (with the bow) can lift off the box
+const LID_CLIP = "polygon(0 0, 100% 0, 100% 38.2%, 91.6% 38.8%, 82% 43.3%, 71.9% 49%, 42% 46.4%, 24.2% 44.3%, 0 44.5%)";
+const BOX_CLIP = "polygon(0 44.5%, 24.2% 44.3%, 42% 46.4%, 71.9% 49%, 82% 43.3%, 91.6% 38.8%, 100% 38.2%, 100% 100%, 0 100%)";
+
+const GiftBox: React.FC<{ box: Box }> = ({ box }) => {
+  const layer = (clipPath: string, className?: string) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/images/sec4_gift_box.svg"
+      alt={className ? "" : "Gift Box"}
+      draggable={false}
+      className={className}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", clipPath }}
+    />
+  );
+  return (
+    <div
+      data-reveal="pop"
+      style={{ position: "absolute", left: u(box[0]), top: u(box[1]), width: u(box[2]), height: u(box[3]), pointerEvents: "none" }}
+    >
+      {layer(BOX_CLIP)}
+      {layer(LID_CLIP, "gift-lid")}
+    </div>
+  );
+};
 
 export const GiftSection: React.FC<GiftSectionProps> = ({
   title = "Wedding Gift",
@@ -107,6 +133,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         img={[-34.35, -23.84, 145.03, 181.3]}
         clip={[0, 0, 110.68, 157.46]}
         reveal="sway"
+        parallax="hanging"
       />
       <ClippedImage
         src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
@@ -115,11 +142,12 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         clip={[302.3, 0, 137.7, 202.34]}
         flipX
         reveal="sway-right"
+        parallax="hanging"
       />
 
       {/* 3. Title, gift box illustration and sparkles */}
       <p data-reveal="blur" style={canvasText([52.09, 52.56, 300.63], "'SloopScript', 'Great Vibes', cursive", 51.574, 72.176)}>{title}</p>
-      <ClippedImage src="/images/sec4_gift_box.svg" alt="Gift Box" img={[179.2, 154.84, 74.8, 74.8]} reveal="pop" />
+      <GiftBox box={[179.2, 154.84, 74.8, 74.8]} />
       <LottieSparkle style={{ position: "absolute", left: u(232.96), top: u(148.88), width: u(37.95), height: u(53.45) }} />
       <LottieSparkle style={{ position: "absolute", left: u(161.64), top: u(192.24), width: u(27.64), height: u(38.92) }} />
 
@@ -191,6 +219,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         img={[-124.47, 457.44, 235.16, 293.94]}
         clip={[0, 562.34, 110.69, 189.06]}
         reveal="rise"
+        parallax="floor"
       />
       <ClippedImage
         src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.png`}
@@ -198,6 +227,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         img={[280.36, CANVAS_H - (REFERENCE_H - 754.46), 202.88, 253.59]}
         clip={[352.72, CANVAS_H - (REFERENCE_H - 844.96), 87.28, REFERENCE_H - 844.96]}
         reveal="rise"
+        parallax="floor"
       />
     </section>
   );

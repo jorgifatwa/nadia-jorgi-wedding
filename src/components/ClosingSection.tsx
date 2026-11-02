@@ -234,6 +234,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
         clip={[234.79, 0, 205.21, 298.75]}
         flipX
         reveal="sway-right"
+        parallax="hanging"
       />
 
       {/* 4-6. Card with tassel, message and names. One group, so it can sink into the envelope when it is sealed
@@ -345,6 +346,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
       {seal === "sealed" && (
         <button
           type="button"
+          data-reveal-skip=""
           onClick={reopen}
           aria-label="Buka kembali undangan"
           style={{
@@ -368,6 +370,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
         img={[-69.33, -54.94, 282.95, 353.69]}
         clip={[0, 0, 213.63, 298.75]}
         reveal="sway"
+        parallax="hanging"
       />
     </section>
   );

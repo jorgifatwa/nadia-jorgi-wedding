@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { CANVAS_W, ClippedImage, MEDIA, canvasText, u, type Box } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
@@ -77,6 +77,16 @@ const layoutCells = (count: number): { cells: Box[]; height: number } => {
   return { cells, height: bottom + BOTTOM_MARGIN };
 };
 
+// Lightbox coverflow: neighbours shown on each side, and the swipe distance that changes photo
+const COVERFLOW_SIDE = 2;
+const SWIPE_PX = 45;
+
+// Shortest signed distance from the active photo, wrapping around (the last photo sits left of the first)
+const coverflowOffset = (idx: number, active: number, count: number) => {
+  const half = Math.floor(count / 2);
+  return ((idx - active + count + half) % count) - half;
+};
+
 export const GallerySection: React.FC<GallerySectionProps> = ({ title = "Gallery", photos = DEFAULT_PHOTOS }) => {
   const [activePhotoIndex, setActivePhotoIndex] = useState<number | null>(null);
   const { cells, height } = layoutCells(photos.length);
@@ -86,7 +96,23 @@ export const GallerySection: React.FC<GallerySectionProps> = ({ title = "Gallery
   };
 
   const handleCloseLightbox = () => {
+    // A swipe ends with a click on the backdrop; that one must not close the lightbox
+    if (swipe.current.moved) return;
     setActivePhotoIndex(null);
+  };
+
+  // Horizontal swipe on the lightbox moves to the next / previous photo
+  const swipe = useRef({ x: 0, moved: false });
+  const handleTouchStart = (e: React.TouchEvent) => {
+    swipe.current = { x: e.touches[0].clientX, moved: false };
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - swipe.current.x;
+    if (Math.abs(dx) < SWIPE_PX) return;
+    swipe.current.moved = true;
+    setTimeout(() => (swipe.current.moved = false), 400);
+    if (dx > 0) handlePrev();
+    else handleNext();
   };
 
   const handlePrev = useCallback(() => {
@@ -268,19 +294,53 @@ export const GallerySection: React.FC<GallerySectionProps> = ({ title = "Gallery
               ›
             </button>
 
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photos[activePhotoIndex].src}
-              alt={photos[activePhotoIndex].alt}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                maxWidth: "92vw",
-                maxHeight: "82vh",
-                objectFit: "contain",
-                borderRadius: "6px",
-                boxShadow: "0 20px 50px rgba(0, 0, 0, 0.8)",
-              }}
-            />
+            {/* Coverflow: the current photo in front, its neighbours turned away on either side; tap one to bring it forward */}
+            <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ position: "absolute", inset: 0, perspective: "1100px", overflow: "hidden" }}>
+              {photos.map((photo, idx) => {
+                const offset = coverflowOffset(idx, activePhotoIndex, photos.length);
+                const distance = Math.min(Math.abs(offset), COVERFLOW_SIDE + 1);
+                const side = Math.sign(offset);
+                return (
+                  <div
+                    key={photo.src}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (offset !== 0) setActivePhotoIndex(idx);
+                    }}
+                    aria-hidden={offset !== 0}
+                    style={{
+                      position: "absolute",
+                      left: "50%",
+                      top: "50%",
+                      transform:
+                        offset === 0
+                          ? "translate(-50%, -50%)"
+                          : `translate(-50%, -50%) translateX(${side * (34 + distance * 30)}%) translateZ(${-120 - distance * 110}px) rotateY(${-side * 45}deg)`,
+                      opacity: distance > COVERFLOW_SIDE ? 0 : [1, 0.6, 0.28][distance],
+                      zIndex: 10 - distance,
+                      transition: "transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.55s ease",
+                      pointerEvents: distance > COVERFLOW_SIDE ? "none" : "auto",
+                      cursor: offset === 0 ? "default" : "pointer",
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.src}
+                      alt={photo.alt}
+                      draggable={false}
+                      style={{
+                        display: "block",
+                        maxWidth: "70vw",
+                        maxHeight: "72vh",
+                        objectFit: "contain",
+                        borderRadius: "6px",
+                        boxShadow: "0 20px 50px rgba(0, 0, 0, 0.8)",
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
 
             <div
               style={{
