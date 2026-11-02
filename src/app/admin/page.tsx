@@ -746,12 +746,18 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   );
 };
 
+interface Session {
+  authenticated: boolean;
+  configured: boolean;
+  storage: "redis" | "file" | "missing";
+}
+
 export default function AdminPage() {
-  const [session, setSession] = useState<{ authenticated: boolean; configured: boolean } | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [tab, setTab] = useState<Tab>("wishes");
 
   const checkSession = useCallback(async () => {
-    setSession(await api<{ authenticated: boolean; configured: boolean }>("/api/admin/session"));
+    setSession(await api<Session>("/api/admin/session"));
   }, []);
 
   useEffect(() => {
@@ -804,6 +810,12 @@ export default function AdminPage() {
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-8 py-8">
+        {session.storage === "missing" && (
+          <div className="mb-6 rounded-xl border border-[#f0c9c9] bg-[#fdf1f1] p-4 text-sm text-[#9b1c1c]">
+            <strong>Penyimpanan belum terhubung.</strong> Ucapan, daftar tamu, dan template tidak bisa disimpan. Di Vercel buka
+            Storage → Create Database → Upstash (Redis), hubungkan ke project ini, lalu Redeploy.
+          </div>
+        )}
         <ConfirmProvider>
           {tab === "wishes" ? <WishesTab onAuthError={handleAuthError} /> : <InvitesTab onAuthError={handleAuthError} />}
         </ConfirmProvider>

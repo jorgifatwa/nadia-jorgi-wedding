@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, checkPassword, createSessionToken, isAdminConfigured, sessionCookieOptions } from "@/lib/adminAuth";
 import { clientIp, rateLimit } from "@/lib/redis";
+import { withErrors } from "@/lib/apiHandler";
 
 // At most 5 login attempts per minute per IP
 const WINDOW_SECONDS = 60;
 const MAX_ATTEMPTS = 5;
 
-export async function POST(request: Request) {
+export const POST = withErrors(async (request: Request) => {
   if (!isAdminConfigured()) {
     return Response.json({ error: "ADMIN_PASSWORD belum diatur di environment server." }, { status: 503 });
   }
@@ -22,4 +23,4 @@ export async function POST(request: Request) {
 
   (await cookies()).set(SESSION_COOKIE, createSessionToken(), sessionCookieOptions);
   return Response.json({ ok: true });
-}
+});

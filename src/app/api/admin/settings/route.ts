@@ -1,12 +1,13 @@
 import { isAdminRequest, unauthorized } from "@/lib/adminAuth";
 import { DEFAULT_TEMPLATE, getSettings, saveSettings } from "@/lib/guestsStore";
+import { withErrors } from "@/lib/apiHandler";
 
-export async function GET() {
+export const GET = withErrors(async () => {
   if (!(await isAdminRequest())) return unauthorized();
   return Response.json({ settings: await getSettings(), defaultTemplate: DEFAULT_TEMPLATE });
-}
+});
 
-export async function PUT(request: Request) {
+export const PUT = withErrors(async (request: Request) => {
   if (!(await isAdminRequest())) return unauthorized();
   const { template, baseUrl } = ((await request.json().catch(() => ({}))) ?? {}) as { template?: unknown; baseUrl?: unknown };
   if (typeof template !== "string" || template.trim().length < 10 || template.length > 4000) {
@@ -20,4 +21,4 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Alamat website harus diawali http:// atau https://" }, { status: 400 });
   }
   return Response.json({ settings: await saveSettings({ template, baseUrl: cleanBaseUrl }) });
-}
+});

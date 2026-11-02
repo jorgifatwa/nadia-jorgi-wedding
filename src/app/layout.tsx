@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 const TITLE = "The Wedding of Nadia & Jorgi";
-const DESCRIPTION = "Sabtu, 5 Desember 2026 · Menara BP Jamsostek, Jakarta Selatan. Kami mengundang Anda untuk hadir dan memberikan doa restu.";
+const DESCRIPTION = "Sabtu, 5 Desember 2026 · Menara BP Jamsostek Lantai 9, Jakarta Selatan. Kami mengundang Anda untuk hadir dan memberikan doa restu.";
 
 // Link previews (WhatsApp, Instagram, ...) need absolute image URLs. NEXT_PUBLIC_SITE_URL sets the public address
 // (e.g. a custom domain); on Vercel the production domain is used automatically. The share image itself is

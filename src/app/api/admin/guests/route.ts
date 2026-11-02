@@ -2,6 +2,7 @@ import { isAdminRequest, unauthorized } from "@/lib/adminAuth";
 import { addGuests, deleteGuest, listGuests, updateGuest } from "@/lib/guestsStore";
 import { normalizePhone } from "@/lib/phone";
 import { cleanText } from "@/lib/wishValidation";
+import { withErrors } from "@/lib/apiHandler";
 
 const NAME_MAX = 80;
 
@@ -15,12 +16,12 @@ const parseEntry = (raw: unknown): { name: string; phone: string | null } | stri
   return normalized ? { name: cleanName, phone: normalized } : `Nomor WhatsApp "${phone}" tidak valid.`;
 };
 
-export async function GET() {
+export const GET = withErrors(async () => {
   if (!(await isAdminRequest())) return unauthorized();
   return Response.json({ guests: await listGuests() });
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withErrors(async (request: Request) => {
   if (!(await isAdminRequest())) return unauthorized();
   const { guests } = ((await request.json().catch(() => ({}))) ?? {}) as { guests?: unknown };
   if (!Array.isArray(guests) || guests.length === 0 || guests.length > 500) {
@@ -31,9 +32,9 @@ export async function POST(request: Request) {
   if (errors.length) return Response.json({ error: errors.join("\n") }, { status: 400 });
   const added = await addGuests(entries as { name: string; phone: string | null }[]);
   return Response.json({ guests: added }, { status: 201 });
-}
+});
 
-export async function PATCH(request: Request) {
+export const PATCH = withErrors(async (request: Request) => {
   if (!(await isAdminRequest())) return unauthorized();
   const body = ((await request.json().catch(() => ({}))) ?? {}) as { id?: unknown; name?: unknown; phone?: unknown; sent?: unknown };
   if (typeof body.id !== "string") return Response.json({ error: "ID tamu wajib diisi." }, { status: 400 });
@@ -48,11 +49,11 @@ export async function PATCH(request: Request) {
 
   const guest = await updateGuest(body.id, changes);
   return guest ? Response.json({ guest }) : Response.json({ error: "Tamu tidak ditemukan." }, { status: 404 });
-}
+});
 
-export async function DELETE(request: Request) {
+export const DELETE = withErrors(async (request: Request) => {
   if (!(await isAdminRequest())) return unauthorized();
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return Response.json({ error: "ID tamu wajib diisi." }, { status: 400 });
   return (await deleteGuest(id)) ? Response.json({ ok: true }) : Response.json({ error: "Tamu tidak ditemukan." }, { status: 404 });
-}
+});

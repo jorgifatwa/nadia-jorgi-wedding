@@ -30,7 +30,7 @@ Tanpa mengurangi rasa hormat, perkenankan kami mengundang Bapak/Ibu/Saudara/i un
 *Nadia Nur Fitri Hermawan & Jorgi Fatwa Ambia*
 
 Sabtu, 5 Desember 2026
-Menara BP Jamsostek, Jakarta Selatan
+Menara BP Jamsostek Lantai 9, Jakarta Selatan
 
 Berikut link undangan kami untuk info lengkap dari acara:
 {link}

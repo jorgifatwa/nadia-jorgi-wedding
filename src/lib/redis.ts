@@ -2,11 +2,24 @@ import "server-only";
 import { Redis } from "@upstash/redis";
 
 // Upstash Redis (Vercel Marketplace) when its env vars are present, otherwise null so local development falls back to
-// the JSON files in data/. The Vercel integration provides KV_REST_API_*; a direct Upstash database UPSTASH_REDIS_REST_*.
-const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
-const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
+// the JSON files in data/. The Vercel integration provides KV_REST_API_* (or <PREFIX>_KV_REST_API_* when a custom
+// prefix was chosen while connecting); a direct Upstash database UPSTASH_REDIS_REST_*.
+const findEnv = (suffixes: string[]) => {
+  for (const suffix of suffixes) {
+    if (process.env[suffix]) return process.env[suffix];
+    const prefixed = Object.keys(process.env).find((name) => name.endsWith(`_${suffix}`) && process.env[name]);
+    if (prefixed) return process.env[prefixed];
+  }
+  return undefined;
+};
+
+const url = findEnv(["UPSTASH_REDIS_REST_URL", "KV_REST_API_URL"]);
+const token = findEnv(["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN"]);
 
 export const redis: Redis | null = url && token ? new Redis({ url, token }) : null;
+
+// Where data is saved: Redis, local JSON files, or nowhere (Vercel without Redis, where every write fails)
+export const storageMode = (): "redis" | "file" | "missing" => (redis ? "redis" : process.env.VERCEL ? "missing" : "file");
 
 // Namespaced keys so the database can be shared with other projects safely
 export const key = (name: string) => `wedding:${name}`;

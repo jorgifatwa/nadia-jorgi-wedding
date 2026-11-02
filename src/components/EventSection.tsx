@@ -121,6 +121,7 @@ export const EventSection: React.FC<EventSectionProps> = ({
   resepsiHours = "19.00 - 21.00 WIB",
   venueName = "MENARA BP JAMSOSTEK",
   venueAddress = [
+    "Lantai 9,",
     "Jl. Gatot Subroto No.38, RT.6/RW.1,",
     "Kuningan Bar., Kec. Mampang Prpt.,",
     "Kota Jakarta Selatan,",

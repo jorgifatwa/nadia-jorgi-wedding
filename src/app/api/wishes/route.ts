@@ -2,17 +2,18 @@ import { connection } from "next/server";
 import { addWish, listWishes } from "@/lib/wishesStore";
 import { clientIp, rateLimit } from "@/lib/redis";
 import { cleanText, isAttendance, validateWish } from "@/lib/wishValidation";
+import { withErrors } from "@/lib/apiHandler";
 
 // One submission per visitor every 20 seconds
 const RATE_LIMIT_SECONDS = 20;
 
-export async function GET() {
+export const GET = withErrors(async () => {
   await connection(); // always read the latest wishes at request time
   const wishes = await listWishes();
   return Response.json({ wishes });
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withErrors(async (request: Request) => {
   let body: unknown;
   try {
     body = await request.json();
@@ -40,4 +41,4 @@ export async function POST(request: Request) {
 
   const wish = await addWish(cleanText(name), message.trim().replace(/\n{3,}/g, "\n\n"), attendance);
   return Response.json({ wish }, { status: 201 });
-}
+});
