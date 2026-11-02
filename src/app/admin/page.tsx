@@ -124,6 +124,89 @@ const LoadingCaption: React.FC = () => (
   </caption>
 );
 
+const PAGE_SIZES = [10, 25, 50];
+
+// Client-side paging of an already loaded list; the page is clamped so deleting the last row of a page stays valid
+const usePagination = <T,>(items: T[]) => {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const current = Math.min(page, pageCount);
+  const pageItems = items.slice((current - 1) * pageSize, current * pageSize);
+  return { page: current, pageCount, pageSize, pageItems, total: items.length, setPage, setPageSize };
+};
+
+// Page numbers with ellipses: 1 … 4 5 6 … 12
+const pageList = (page: number, pageCount: number): (number | "gap")[] => {
+  const pages = new Set([1, pageCount, page - 1, page, page + 1].filter((n) => n >= 1 && n <= pageCount));
+  const sorted = [...pages].sort((a, b) => a - b);
+  return sorted.flatMap((n, idx) => (idx > 0 && n - sorted[idx - 1] > 1 ? (["gap", n] as const) : [n]));
+};
+
+const Pagination: React.FC<ReturnType<typeof usePagination<unknown>>> = ({ page, pageCount, pageSize, total, setPage, setPageSize }) => {
+  if (total === 0) return null;
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  const navButton = "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+  return (
+    <div className="flex items-center justify-between gap-4 border-t border-[#efe9de] bg-[#faf8f4] px-4 py-2.5 text-sm text-[#5c6158]">
+      <div className="flex items-center gap-3">
+        <span>
+          Menampilkan <span className="font-medium text-[#1f2a22]">{from}–{to}</span> dari {total}
+        </span>
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+            setPage(1);
+          }}
+          aria-label="Baris per halaman"
+          className="rounded-lg border border-[#d9d2c5] bg-white px-2 py-1 text-sm outline-none focus:border-[#24412f]"
+        >
+          {PAGE_SIZES.map((size) => (
+            <option key={size} value={size}>
+              {size} / halaman
+            </option>
+          ))}
+        </select>
+      </div>
+      {pageCount > 1 && (
+        <nav className="flex items-center gap-1" aria-label="Halaman">
+          <button type="button" className={`${navButton} hover:bg-[#efe9de]`} disabled={page === 1} onClick={() => setPage(page - 1)} aria-label="Halaman sebelumnya">
+            ‹
+          </button>
+          {pageList(page, pageCount).map((item, idx) =>
+            item === "gap" ? (
+              <span key={`gap-${idx}`} className="px-1 text-[#b3ab9c]">
+                …
+              </span>
+            ) : (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setPage(item)}
+                aria-current={item === page ? "page" : undefined}
+                className={`${navButton} ${item === page ? "bg-[#24412f] font-medium text-white" : "hover:bg-[#efe9de]"}`}
+              >
+                {item}
+              </button>
+            ),
+          )}
+          <button
+            type="button"
+            className={`${navButton} hover:bg-[#efe9de]`}
+            disabled={page === pageCount}
+            onClick={() => setPage(page + 1)}
+            aria-label="Halaman berikutnya"
+          >
+            ›
+          </button>
+        </nav>
+      )}
+    </div>
+  );
+};
+
 const StatCard: React.FC<{ label: string; value: number; loading?: boolean; tone?: string }> = ({
   label,
   value,
@@ -377,6 +460,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       (w) => (filter === "all" || w.attendance === filter) && (!q || w.name.toLowerCase().includes(q) || w.message.toLowerCase().includes(q)),
     );
   }, [wishes, query, filter]);
+  const pagination = usePagination(visible);
 
   return (
     <div>
@@ -394,13 +478,19 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       <div className="mt-6 flex items-center gap-3">
         <input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            pagination.setPage(1);
+          }}
           placeholder="Cari nama atau isi ucapan..."
           className="w-80 rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]"
         />
         <select
           value={filter}
-          onChange={(e) => setFilter(e.target.value as typeof filter)}
+          onChange={(e) => {
+            setFilter(e.target.value as typeof filter);
+            pagination.setPage(1);
+          }}
           className="rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]"
         >
           <option value="all">Semua kehadiran</option>
@@ -434,7 +524,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
           </thead>
           <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
             {!loaded && <SkeletonRows columns={["w-28", "w-16", "w-full", "w-28", "ml-auto w-14"]} />}
-            {visible.map((wish) => (
+            {pagination.pageItems.map((wish) => (
               <tr key={wish.id} className="align-top hover:bg-[#fcfbf8]">
                 <td className="px-4 py-3 font-medium">{wish.name}</td>
                 <td className="px-4 py-3">
@@ -468,6 +558,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
             )}
           </tbody>
         </table>
+        {loaded && <Pagination {...pagination} />}
       </div>
     </div>
   );
@@ -531,6 +622,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     try {
       const data = await api<{ guests: Guest[] }>("/api/admin/guests", { method: "POST", body: JSON.stringify({ guests: entries }) });
       setGuests((prev) => [...prev, ...data.guests]);
+      pagination.setPage(Number.MAX_SAFE_INTEGER); // clamped to the last page, where the new guests are
       setNotice({ kind: "success", text: `${data.guests.length} tamu ditambahkan.` });
       onDone();
     } catch (err) {
@@ -595,6 +687,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     const matchesQuery = (g: Guest) => !q || g.name.toLowerCase().includes(q) || (digits !== "" && (g.phone ?? "").includes(digits));
     return guests.filter((g) => (statusFilter === "all" || (statusFilter === "sent" ? g.sentAt : !g.sentAt)) && matchesQuery(g));
   }, [guests, query, statusFilter]);
+  const pagination = usePagination(visible);
 
   const previewGuest = guests.find((g) => g.id === previewId) ?? guests[0];
   const previewName = previewGuest?.name ?? "Nama Tamu";
@@ -678,13 +771,19 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
           <div className="mt-4 flex items-center gap-3">
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                pagination.setPage(1);
+              }}
               placeholder="Cari nama atau nomor..."
               className="w-72 rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]"
             />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as typeof statusFilter);
+                pagination.setPage(1);
+              }}
               className="rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]"
             >
               <option value="all">Semua status</option>
@@ -710,7 +809,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               </thead>
               <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
                 {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "ml-auto w-48"]} />}
-                {visible.map((guest) => (
+                {pagination.pageItems.map((guest) => (
                   <tr
                     key={guest.id}
                     onClick={() => setPreviewId(guest.id)}
@@ -772,6 +871,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                 )}
               </tbody>
             </table>
+            {loaded && <Pagination {...pagination} />}
           </div>
         </div>
 
