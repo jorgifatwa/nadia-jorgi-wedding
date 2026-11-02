@@ -9,6 +9,9 @@ export const MEDIA = "/drapery_assets/media";
 
 export type Box = [x: number, y: number, w: number, h: number];
 
+// Scroll-reveal entrance of an element (see the data-reveal rules in globals.css)
+export type Reveal = "zoom" | "left" | "right" | "rise" | "drop" | "sway" | "sway-right" | "pop" | "blur" | "swing" | "flip" | "wipe" | "tilt-left" | "tilt-right";
+
 // Image placed at `img` box, visible only inside `clip` box (both in canvas coordinates), optionally shaped by `clipPath`
 export const ClippedImage: React.FC<{
   src: string;
@@ -18,11 +21,12 @@ export const ClippedImage: React.FC<{
   clipPath?: string;
   objectFit?: React.CSSProperties["objectFit"];
   flipX?: boolean;
-  // Backgrounds opt out of the scroll-reveal animation; other images reveal with a soft zoom
+  // Backgrounds opt out of the scroll-reveal animation; other images reveal with a soft zoom unless `reveal` says otherwise
   skipReveal?: boolean;
-}> = ({ src, alt, img, clip = img, clipPath, objectFit, flipX, skipReveal }) => (
+  reveal?: Reveal;
+}> = ({ src, alt, img, clip = img, clipPath, objectFit, flipX, skipReveal, reveal = "zoom" }) => (
   <div
-    data-reveal={skipReveal ? undefined : "zoom"}
+    data-reveal={skipReveal ? undefined : reveal}
     data-reveal-skip={skipReveal ? "" : undefined}
     style={{
       position: "absolute",

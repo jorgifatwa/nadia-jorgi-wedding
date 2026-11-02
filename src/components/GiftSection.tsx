@@ -78,6 +78,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
     <section
       id="section-gift"
       className="reveal-scope"
+      data-reveal-style="unwrap"
       style={{
         position: "relative",
         width: "100%",
@@ -105,6 +106,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         alt="Hanging Florals Left"
         img={[-34.35, -23.84, 145.03, 181.3]}
         clip={[0, 0, 110.68, 157.46]}
+        reveal="sway"
       />
       <ClippedImage
         src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
@@ -112,11 +114,12 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         img={[302.3, -23.84, 180.94, 226.17]}
         clip={[302.3, 0, 137.7, 202.34]}
         flipX
+        reveal="sway-right"
       />
 
       {/* 3. Title, gift box illustration and sparkles */}
-      <p style={canvasText([52.09, 52.56, 300.63], "'SloopScript', 'Great Vibes', cursive", 51.574, 72.176)}>{title}</p>
-      <ClippedImage src="/images/sec4_gift_box.svg" alt="Gift Box" img={[179.2, 154.84, 74.8, 74.8]} />
+      <p data-reveal="blur" style={canvasText([52.09, 52.56, 300.63], "'SloopScript', 'Great Vibes', cursive", 51.574, 72.176)}>{title}</p>
+      <ClippedImage src="/images/sec4_gift_box.svg" alt="Gift Box" img={[179.2, 154.84, 74.8, 74.8]} reveal="pop" />
       <LottieSparkle style={{ position: "absolute", left: u(232.96), top: u(148.88), width: u(37.95), height: u(53.45) }} />
       <LottieSparkle style={{ position: "absolute", left: u(161.64), top: u(192.24), width: u(27.64), height: u(38.92) }} />
 
@@ -134,10 +137,11 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         const layout = ACCOUNT_LAYOUT[idx];
         return (
           <React.Fragment key={idx}>
-            <p style={bodyLine(layout.x, layout.numberY, 345.2, { bold: true })}>{acc.accountNumber}</p>
-            <p style={bodyLine(layout.x, layout.bankY, 345.2)}>{acc.bankName}</p>
-            <p style={bodyLine(layout.x, layout.holderY, 345.2)}>{acc.accountHolder}</p>
+            <p data-reveal="flip" style={bodyLine(layout.x, layout.numberY, 345.2, { bold: true })}>{acc.accountNumber}</p>
+            <p data-reveal="flip" style={bodyLine(layout.x, layout.bankY, 345.2)}>{acc.bankName}</p>
+            <p data-reveal="flip" style={bodyLine(layout.x, layout.holderY, 345.2)}>{acc.accountHolder}</p>
             <button
+              data-reveal="pop"
               type="button"
               onClick={() => handleCopy(acc.accountNumber, acc.bankName, idx)}
               aria-label={`Salin nomor rekening ${acc.bankName}`}
@@ -186,12 +190,14 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         alt="Floor Florals Left"
         img={[-124.47, 457.44, 235.16, 293.94]}
         clip={[0, 562.34, 110.69, 189.06]}
+        reveal="rise"
       />
       <ClippedImage
         src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.png`}
         alt="Floor Florals Right"
         img={[280.36, CANVAS_H - (REFERENCE_H - 754.46), 202.88, 253.59]}
         clip={[352.72, CANVAS_H - (REFERENCE_H - 844.96), 87.28, REFERENCE_H - 844.96]}
+        reveal="rise"
       />
     </section>
   );

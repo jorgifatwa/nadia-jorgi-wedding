@@ -112,6 +112,7 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = () => {
         src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
         alt="Top Left Flower Bouquet"
         img={[15.6, 88.1, 262, 327.5]}
+        reveal="sway"
       />
 
       {/* 3. Envelope back */}
@@ -119,6 +120,7 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = () => {
         src={`${MEDIA}/1e7bcbf0e72a46a3fc5a00d154822f44.png`}
         alt="Envelope Back"
         img={[68.3, 402.3, 301.3, 320.6]}
+        reveal="rise"
       />
 
       {/* 4. Burgundy velvet lining */}
@@ -127,6 +129,7 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = () => {
         alt="Burgundy Velvet Lining"
         img={[72.2, 281.7, 293.6, 522.5]}
         clip={[72.2, 421.7, 293.5, 242.5]}
+        reveal="rise"
         clipPath="polygon(49.68% 0%, 51.01% 0.11%, 52.25% 0.84%, 73% 19.99%, 88.5% 35.08%, 100% 47.16%, 99.91% 47.27%, 99.95% 99.72%, 99.77% 100%, 0.23% 100%, 0.09% 99.89%, 0% 99.67%, 0.05% 47.22%, 6.21% 41.04%, 20.01% 27.84%, 31.74% 16.37%, 46.23% 2.78%, 47.88% 1%, 48.99% 0.22%)"
       />
 
@@ -136,6 +139,7 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = () => {
         alt="Envelope Front Pocket"
         img={[32.6, 366.8, 375.5, 469.4]}
         clip={[67.7, 532.2, 308.6, 190.7]}
+        reveal="rise"
       />
 
       {/* 6. Oval lace doily card */}
@@ -152,13 +156,14 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = () => {
         alt="Right Side Cascading Flowers"
         img={[158.3, 431.9, 281.7, 352.1]}
         clip={[258.8, 557.5, 181.2, 226.5]}
+        reveal="rise"
       />
 
       {/* 8. QS Ar-Rum 21 verse */}
-      <p style={{ ...verseTextStyle, top: u(255.3) }}>
+      <p data-reveal="blur" style={{ ...verseTextStyle, top: u(255.3) }}>
         {`"Dan di antara tanda-tanda\n(kebesaran)-Nya ialah Dia\nmenciptakan pasangan-pasangan\nuntukmu dari jenismu sendiri, agar\nkamu cenderung dan merasa\ntenteram kepadanya, dan Dia\nmenjadikan di antaramu rasa kasih\ndan sayang. Sungguh, pada yang\ndemikian itu benar-benar terdapat\ntanda-tanda (kebesaran Allah) bagi\nkaum yang berpikir."`}
       </p>
-      <p style={{ ...verseTextStyle, top: u(429.3) }}>QS Ar-Rum 21</p>
+      <p data-reveal="blur" style={{ ...verseTextStyle, top: u(429.3) }}>QS Ar-Rum 21</p>
 
       {/* 9. Music player */}
       <>
@@ -278,21 +283,24 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = () => {
         src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
         alt="Top Left Flower Accent"
         img={[44, 191.2, 134.5, 168.2]}
+        reveal="sway"
       />
       <ClippedImage
         src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
         alt="Top Flower Accent"
         img={[111.3, 117, 134.5, 168.2]}
+        reveal="sway-right"
       />
 
       {/* 12. Flapping white butterfly */}
-      <ClippedImage src="/images/butterfly_flapping.gif" alt="Flapping White Butterfly" img={[156.3, 108.9, 54.3, 56.7]} />
+      <ClippedImage src="/images/butterfly_flapping.gif" alt="Flapping White Butterfly" img={[156.3, 108.9, 54.3, 56.7]} reveal="pop" />
 
       {/* 13. Burgundy silk tassel (rotated ~1.23deg about its top-left, as in the reference) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`${MEDIA}/c908061d4359aa428f27db3c46c60274.png`}
         alt="Burgundy Silk Tassel"
+        data-reveal="drop"
         draggable={false}
         style={{
           position: "absolute",

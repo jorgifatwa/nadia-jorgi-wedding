@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { ClippedImage, MEDIA, canvasText, u, type Box } from "./canvasLayout";
+import { CANVAS_W, ClippedImage, MEDIA, canvasText, u, type Box } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
 
 export interface GalleryPhoto {
@@ -161,7 +161,7 @@ export const GallerySection: React.FC<GallerySectionProps> = ({ title = "Gallery
       ))}
 
       {/* 2. Title with a flipped, tilted sparkle cluster */}
-      <p style={canvasText([69.69, 38.84, 300.63], "'SloopScript', 'Great Vibes', cursive", 51.574, 72.176)}>{title}</p>
+      <p data-reveal="blur" style={canvasText([69.69, 38.84, 300.63], "'SloopScript', 'Great Vibes', cursive", 51.574, 72.176)}>{title}</p>
       <LottieSparkle
         style={{
           position: "absolute",
@@ -179,6 +179,7 @@ export const GallerySection: React.FC<GallerySectionProps> = ({ title = "Gallery
         return (
           <button
             key={photo.src}
+            data-reveal={x + w / 2 < CANVAS_W / 2 ? "tilt-left" : "tilt-right"}
             type="button"
             onClick={() => handleOpenLightbox(idx)}
             aria-label={`Buka ${photo.alt}`}

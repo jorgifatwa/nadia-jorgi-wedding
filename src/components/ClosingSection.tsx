@@ -26,6 +26,7 @@ const messageLine = (y: number) =>
 // Couple names sit in a group rotated -7.33deg; each line is placed by its centre and unrotated size (159.33 x 50.46)
 const NameLine: React.FC<{ text: string; center: [x: number, y: number] }> = ({ text, center }) => (
   <div
+    data-reveal="blur"
     style={{
       position: "absolute",
       left: u(center[0] - 159.33 / 2),
@@ -64,6 +65,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
     <section
       id="section-closing"
       className="reveal-scope"
+      data-reveal-style="cinematic"
       style={{
         position: "relative",
         width: "100%",
@@ -86,25 +88,28 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
       />
 
       {/* 2. Open envelope: back, burgundy lining, front pocket, florals on the right */}
-      <ClippedImage src={`${MEDIA}/1e7bcbf0e72a46a3fc5a00d154822f44.png`} alt="Envelope Back" img={[68.27, 433.91, 301.33, 320.56]} />
+      <ClippedImage src={`${MEDIA}/1e7bcbf0e72a46a3fc5a00d154822f44.png`} alt="Envelope Back" img={[68.27, 433.91, 301.33, 320.56]} reveal="rise" />
       <ClippedImage
         src={`${MEDIA}/fd53e8793519ee86df4fd95a8217d781.png`}
         alt="Burgundy Velvet Lining"
         img={[72.15, 313.29, 293.56, 522.52]}
         clip={[72.15, 453.29, 293.56, 242.52]}
         clipPath={LINING_CLIP}
+        reveal="rise"
       />
       <ClippedImage
         src={`${MEDIA}/4eb403d7039697c0864925cfaaa203ee.png`}
         alt="Envelope Front Pocket"
         img={[32.61, 398.41, 375.52, 469.41]}
         clip={[67.74, 563.82, 308.53, 190.64]}
+        reveal="rise"
       />
       <ClippedImage
         src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.png`}
         alt="Envelope Florals"
         img={[144.94, 457.5, 295.05, 368.81]}
         clip={[250.18, 589.11, 189.81, 237.2]}
+        reveal="rise"
       />
 
       {/* 3. Hanging bouquet, top right (mirrored) */}
@@ -114,6 +119,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
         img={[234.79, -54.94, 282.95, 353.69]}
         clip={[234.79, 0, 205.21, 298.75]}
         flipX
+        reveal="sway-right"
       />
 
       {/* 4. Ornate burgundy card with tassel */}
@@ -124,6 +130,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
         clip={[55.87, 96.89, 332.27, 587.27]}
       />
       <div
+        data-reveal="drop"
         style={{
           position: "absolute",
           left: u(209.14),
@@ -139,6 +146,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
       <img
         src={`${MEDIA}/f002c1dc18ae3027cd46edbe0ad35f38.png`}
         alt="Emerald Silk Tassel"
+        data-reveal="drop"
         draggable={false}
         style={{
           position: "absolute",
@@ -154,11 +162,11 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
 
       {/* 5. Closing message */}
       {messageLines.map((line, idx) => (
-        <p key={idx} style={messageLine(202.82 + idx * 16.887)}>
+        <p key={idx} data-reveal="blur" style={messageLine(202.82 + idx * 16.887)}>
           {line}
         </p>
       ))}
-      <p style={messageLine(304.16)}>{seeYouText}</p>
+      <p data-reveal="blur" style={messageLine(304.16)}>{seeYouText}</p>
 
       {/* 6. Couple names */}
       <NameLine text={brideName} center={[213.5, 384.09]} />
@@ -166,7 +174,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
       <NameLine text={groomName} center={[226.39, 484.17]} />
 
       {/* 7. Flapping white butterfly perched on the card */}
-      <ClippedImage src="/images/butterfly_flapping.gif" alt="Flapping White Butterfly" img={[266.85, 146.1, 66.72, 69.66]} />
+      <ClippedImage src="/images/butterfly_flapping.gif" alt="Flapping White Butterfly" img={[266.85, 146.1, 66.72, 69.66]} reveal="pop" />
 
       {/* 8. Hanging bouquet, top left */}
       <ClippedImage
@@ -174,6 +182,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({
         alt="Hanging Florals Left"
         img={[-69.33, -54.94, 282.95, 353.69]}
         clip={[0, 0, 213.63, 298.75]}
+        reveal="sway"
       />
     </section>
   );

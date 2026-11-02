@@ -45,6 +45,7 @@ const RotatedWord: React.FC<{ text: string; center: [x: number, y: number]; size
   fontSize,
 }) => (
   <p
+    data-reveal="swing"
     style={{
       position: "absolute",
       left: u(center[0] - size[0] / 2),
@@ -69,6 +70,7 @@ const RotatedWord: React.FC<{ text: string; center: [x: number, y: number]; size
 // 2px cream rule framing the Akad / Resepsi times
 const Rule: React.FC<{ box: Box; rotate?: number }> = ({ box, rotate }) => (
   <div
+    data-reveal="wipe"
     style={{
       position: "absolute",
       left: u(box[0]),
@@ -136,6 +138,7 @@ export const EventSection: React.FC<EventSectionProps> = ({
     <section
       id="section-event"
       className="reveal-scope"
+      data-reveal-style="unfold"
       style={{
         position: "relative",
         width: "100%",
@@ -161,41 +164,42 @@ export const EventSection: React.FC<EventSectionProps> = ({
       <RotatedWord text="Save" center={[222.16, 136.11]} size={[315.13, 101.62]} fontSize={72.85} />
       <RotatedWord text="the" center={[244.66, 185.06]} size={[157.56, 50.81]} fontSize={36.42} />
       <RotatedWord text="Date" center={[228.02, 270.61]} size={[315.13, 101.62]} fontSize={72.85} />
-      <ClippedImage src="/images/butterfly_flapping.gif" alt="Flapping Butterfly" img={[333.52, 208.11, 30.86, 32.22]} />
+      <ClippedImage src="/images/butterfly_flapping.gif" alt="Flapping Butterfly" img={[333.52, 208.11, 30.86, 32.22]} reveal="pop" />
 
       {/* 3. Date block: month, Akad | day | Resepsi between cream rules, year */}
-      <p style={textStyle([106.73, 348.72, 236.67], BODY_FONT, 18.367, 18.37, { letterSpacing: -0.037, bold: true, renderScale: DATE_BLOCK_SCALE })}>{month}</p>
+      <p data-reveal="drop" style={textStyle([106.73, 348.72, 236.67], BODY_FONT, 18.367, 18.37, { letterSpacing: -0.037, bold: true, renderScale: DATE_BLOCK_SCALE })}>{month}</p>
       <Rule box={[50.22, 383.74, 126.52, 2]} />
       <Rule box={[278.74, 378.64, 125.92, 2]} />
       <Rule box={[50.22, 463.7, 126.52, 2]} rotate={-0.484} />
       <Rule box={[278.74, 460.21, 125.92, 2]} />
-      <p style={textStyle([27.01, 396.36, 141.11], SCRIPT_FONT, 38.265, 37.88, { letterSpacing: -0.0765, align: "right", renderScale: DATE_BLOCK_SCALE })}>Akad</p>
-      <p style={textStyle([36.29, 438.99, 140.43], BODY_FONT, 13.775, 13.78, { letterSpacing: -0.0275, align: "right", bold: true, renderScale: DATE_BLOCK_SCALE })}>
+      <p data-reveal="left" style={textStyle([27.01, 396.36, 141.11], SCRIPT_FONT, 38.265, 37.88, { letterSpacing: -0.0765, align: "right", renderScale: DATE_BLOCK_SCALE })}>Akad</p>
+      <p data-reveal="left" style={textStyle([36.29, 438.99, 140.43], BODY_FONT, 13.775, 13.78, { letterSpacing: -0.0275, align: "right", bold: true, renderScale: DATE_BLOCK_SCALE })}>
         {akadTime}
       </p>
       {/* Day number gently grows and shrinks; the pulse sits on a wrapper so it doesn't fight the text's render scale */}
       <div
+        data-reveal="flip"
         className="animate-pulse-soft"
         style={{ position: "absolute", left: u(140.08), top: u(388.35), width: u(170.01), height: u(63.31), pointerEvents: "none" }}
       >
         <p style={textStyle([0, 0, 170.01], BODY_FONT, 45.39, 63.31, { bold: true, renderScale: 0.34783 })}>{day}</p>
       </div>
-      <p style={textStyle([278.74, 392.32, 141.56], SCRIPT_FONT, 38.265, 37.88, { letterSpacing: -0.0765, align: "left", renderScale: DATE_BLOCK_SCALE })}>Resepsi</p>
-      <p style={textStyle([278.74, 434.96, 140.43], BODY_FONT, 13.775, 13.78, { letterSpacing: -0.0275, align: "left", bold: true, renderScale: DATE_BLOCK_SCALE })}>
+      <p data-reveal="right" style={textStyle([278.74, 392.32, 141.56], SCRIPT_FONT, 38.265, 37.88, { letterSpacing: -0.0765, align: "left", renderScale: DATE_BLOCK_SCALE })}>Resepsi</p>
+      <p data-reveal="right" style={textStyle([278.74, 434.96, 140.43], BODY_FONT, 13.775, 13.78, { letterSpacing: -0.0275, align: "left", bold: true, renderScale: DATE_BLOCK_SCALE })}>
         {resepsiTime}
       </p>
-      <p style={textStyle([146.37, 463.74, 157.44], BODY_FONT, 21.43, 29.97, { bold: true, renderScale: 0.483403 })}>{year}</p>
+      <p data-reveal="rise" style={textStyle([146.37, 463.74, 157.44], BODY_FONT, 21.43, 29.97, { bold: true, renderScale: 0.483403 })}>{year}</p>
 
       {/* 4. Venue illustration: wings, centre building, cypress trees, fountain */}
-      <ClippedImage src={`${MEDIA}/c7b9a8e80ff07fc9427f8bce49e38276.png`} alt="" img={[49.09, 536.34, 118.17, 123.86]} />
-      <ClippedImage src={`${MEDIA}/6cbd981383bb0be28a2f55c68fb11767.png`} alt="" img={[272.74, 536.34, 118.17, 123.86]} />
-      <ClippedImage src={`${MEDIA}/6a46472959bb93e40e93e6f7e53db377.png`} alt="Venue Illustration" img={[158.94, 552.97, 126.05, 94.09]} />
-      <ClippedImage src={`${MEDIA}/061bb6589fe36bb9f07745260df53b3a.png`} alt="" img={[155, 573.1, 28, 77.03]} />
-      <ClippedImage src={`${MEDIA}/edb61eab0272fcfcb100ac74f196fa4b.png`} alt="" img={[256.98, 573.1, 31.94, 77.03]} />
-      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.png`} alt="" img={[96.36, 643.13, 247.28, 33.69]} />
+      <ClippedImage src={`${MEDIA}/c7b9a8e80ff07fc9427f8bce49e38276.png`} alt="" img={[49.09, 536.34, 118.17, 123.86]} reveal="rise" />
+      <ClippedImage src={`${MEDIA}/6cbd981383bb0be28a2f55c68fb11767.png`} alt="" img={[272.74, 536.34, 118.17, 123.86]} reveal="rise" />
+      <ClippedImage src={`${MEDIA}/6a46472959bb93e40e93e6f7e53db377.png`} alt="Venue Illustration" img={[158.94, 552.97, 126.05, 94.09]} reveal="rise" />
+      <ClippedImage src={`${MEDIA}/061bb6589fe36bb9f07745260df53b3a.png`} alt="" img={[155, 573.1, 28, 77.03]} reveal="rise" />
+      <ClippedImage src={`${MEDIA}/edb61eab0272fcfcb100ac74f196fa4b.png`} alt="" img={[256.98, 573.1, 31.94, 77.03]} reveal="rise" />
+      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.png`} alt="" img={[96.36, 643.13, 247.28, 33.69]} reveal="wipe" />
 
       {/* 5. Akad details */}
-      <p style={textStyle([69.69, 741.57, 300.63], SCRIPT_FONT, 51.556, 72.15)}>Akad</p>
+      <p data-reveal="blur" style={textStyle([69.69, 741.57, 300.63], SCRIPT_FONT, 51.556, 72.15)}>Akad</p>
       <EventDetails top={841.98} date={akadDate} hours={akadHours} venueName={venueName} venueAddress={venueAddress} />
 
       {/* 6. Calla lily divider (rotated -98.54deg about its centre) */}
@@ -203,6 +207,7 @@ export const EventSection: React.FC<EventSectionProps> = ({
       <img
         src={`${MEDIA}/01121590f317abfa83066572fb626dee.png`}
         alt="Calla Lily Divider"
+        data-reveal="pop"
         draggable={false}
         style={{
           position: "absolute",
@@ -217,11 +222,12 @@ export const EventSection: React.FC<EventSectionProps> = ({
       />
 
       {/* 7. Resepsi details */}
-      <p style={textStyle([69.69, 1123.23 + extra, 300.63], SCRIPT_FONT, 51.556, 72.15)}>Resepsi</p>
+      <p data-reveal="blur" style={textStyle([69.69, 1123.23 + extra, 300.63], SCRIPT_FONT, 51.556, 72.15)}>Resepsi</p>
       <EventDetails top={1223.63 + extra} date={resepsiDate} hours={resepsiHours} venueName={venueName} venueAddress={venueAddress} />
 
       {/* 8. Google Maps button */}
       <a
+        data-reveal="pop"
         href={mapsUrl}
         target="_blank"
         rel="noopener noreferrer"

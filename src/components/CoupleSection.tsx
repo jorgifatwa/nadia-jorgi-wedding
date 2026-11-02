@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ClippedImage, MEDIA, u, type Box } from "./canvasLayout";
+import { type Reveal, ClippedImage, MEDIA, u, type Box } from "./canvasLayout";
 
 export interface CoupleSectionProps {
   brideName?: string;
@@ -45,18 +45,19 @@ const textStyle = (
 const BODY_FONT = "'QuattrocentoLocal', 'Quattrocento', serif";
 const NAME_FONT = "'SloopScript', 'Great Vibes', cursive";
 
-// Parents' lines are stacked as separate text boxes in the reference, 13.53px apart
+// Parents' lines are stacked as separate text boxes in the reference, 13.53px apart. They enter from the side they sit
+// on: left-aligned lines (right of the portrait) from the right, and vice versa.
 const bioLines = (lines: string[], box: [x: number, y: number, w: number], align: "left" | "right") =>
   lines.map((line, idx) => (
-    <p key={idx} style={textStyle([box[0], box[1] + idx * 13.525, box[2]], BODY_FONT, 13.74, 13.525, -0.0275, align)}>
+    <p key={idx} data-reveal={align === "left" ? "right" : "left"} style={textStyle([box[0], box[1] + idx * 13.525, box[2]], BODY_FONT, 13.74, 13.525, -0.0275, align)}>
       {line}
     </p>
   ));
 
-const PortraitFrame: React.FC<{ photo: string; alt: string; clip: Box; frame: Box }> = ({ photo, alt, clip, frame }) => (
+const PortraitFrame: React.FC<{ photo: string; alt: string; clip: Box; frame: Box; reveal: Reveal }> = ({ photo, alt, clip, frame, reveal }) => (
   <>
-    <ClippedImage src={photo} alt={alt} img={clip} clipPath={PHOTO_CLIP} objectFit="cover" />
-    <ClippedImage src={`${MEDIA}/869fde431be61aa57e2281cbbdd7e1ac.png`} alt="Gold Oval Frame" img={frame} />
+    <ClippedImage src={photo} alt={alt} img={clip} clipPath={PHOTO_CLIP} objectFit="cover" reveal={reveal} />
+    <ClippedImage src={`${MEDIA}/869fde431be61aa57e2281cbbdd7e1ac.png`} alt="Gold Oval Frame" img={frame} reveal={reveal} />
   </>
 );
 
@@ -93,7 +94,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
       />
 
       {/* 2. Bismillahir Rahmanir Rahim */}
-      <ClippedImage src="/images/sec2_bismillah.svg" alt="Bismillahir Rahmanir Rahim" img={[119.71, 66.36, 176, 38.72]} />
+      <ClippedImage src="/images/sec2_bismillah.svg" alt="Bismillahir Rahmanir Rahim" img={[119.71, 66.36, 176, 38.72]} reveal="blur" />
 
       {/* 3. Invitation greeting */}
       {["Dengan memohon rahmat & ridho Allah SWT,", "kami mengundang bapak/ibu/saudara/i", "untuk hadir pada pernikahan:"].map(
@@ -111,20 +112,21 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
         alt={brideName.replace("\n", " ")}
         clip={[31.82, 252.42, 153.45, 183.05]}
         frame={[31.78, 252.42, 153.53, 183.05]}
+        reveal="left"
       />
-      <p style={{ ...textStyle([207.71, 280.4, 232.29], NAME_FONT, 38.661, 38.661, -0.0773, "left"), whiteSpace: "pre-line" }}>
+      <p data-reveal="right" style={{ ...textStyle([207.71, 280.4, 232.29], NAME_FONT, 38.661, 38.661, -0.0773, "left"), whiteSpace: "pre-line" }}>
         {brideName}
       </p>
       {bioLines(brideBio, [205.95, 362.91, 218.72], "left")}
 
       {/* 5. Ampersand divider */}
-      <p style={textStyle([209.8, 461.82, 24.58], "'AmpersandLocal', 'Great Vibes', cursive", 34.203, 34.203, -0.068, "center")}>
+      <p data-reveal="pop" style={textStyle([209.8, 461.82, 24.58], "'AmpersandLocal', 'Great Vibes', cursive", 34.203, 34.203, -0.068, "center")}>
         &amp;
       </p>
 
       {/* 6. Groom: name & parents (left) + portrait (right); the two-line block is raised so the parents' lines
              end above the bottom-left florals (which start at y = 637) */}
-      <p style={{ ...textStyle([16.63, 520, 210.2], NAME_FONT, 38.627, 38.627, -0.0773, "right"), whiteSpace: "pre-line" }}>
+      <p data-reveal="left" style={{ ...textStyle([16.63, 520, 210.2], NAME_FONT, 38.627, 38.627, -0.0773, "right"), whiteSpace: "pre-line" }}>
         {groomName}
       </p>
       {bioLines(groomBio, [21.97, 600.87, 199.61], "right")}
@@ -133,6 +135,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
         alt={groomName.replace("\n", " ")}
         clip={[241.74, 522.91, 153.45, 183.05]}
         frame={[241.7, 522.91, 153.53, 183.05]}
+        reveal="right"
       />
 
       {/* 7. Bottom-left floor florals */}
@@ -141,6 +144,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
         alt="Floor Florals Left"
         img={[-149.38, 513.26, 277.59, 346.98]}
         clip={[0, 637.08, 128.22, 183.97]}
+        reveal="rise"
       />
 
       {/* 8. Bottom-right bouquet: lower part in this section, continuation overlapping the top of Section 3 */}

@@ -212,6 +212,7 @@ export const WishesSection: React.FC = () => {
     <section
       id="section-wishes"
       className="reveal-scope"
+      data-reveal-style="slide"
       style={{
         position: "relative",
         width: "100%",
@@ -232,17 +233,24 @@ export const WishesSection: React.FC = () => {
       />
 
       {/* 2. Hanging bouquets in the top corners, as in the gift section */}
-      <ClippedImage src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`} alt="" img={[-34.35, -23.84, 145.03, 181.3]} clip={[0, 0, 110.68, 157.46]} />
+      <ClippedImage
+        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
+        alt=""
+        img={[-34.35, -23.84, 145.03, 181.3]}
+        clip={[0, 0, 110.68, 157.46]}
+        reveal="sway"
+      />
       <ClippedImage
         src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
         alt=""
         img={[302.3, -23.84, 180.94, 226.17]}
         clip={[302.3, 0, 137.7, 202.34]}
         flipX
+        reveal="sway-right"
       />
 
       {/* 3. Title, subtitle and sparkles */}
-      <p style={canvasText([20, 52.56, 400], "'SloopScript', 'Great Vibes', cursive", 51.574, 72.176)}>Ucapan &amp; Doa</p>
+      <p data-reveal="blur" style={canvasText([20, 52.56, 400], "'SloopScript', 'Great Vibes', cursive", 51.574, 72.176)}>Ucapan &amp; Doa</p>
       <LottieSparkle style={{ position: "absolute", left: u(318), top: u(46), width: u(37.95), height: u(53.45) }} />
       <LottieSparkle style={{ position: "absolute", left: u(96), top: u(100), width: u(27.64), height: u(38.92) }} />
       <p style={canvasText([40, 138, 360], BODY_FONT, 16.341, 24.238, { renderScale: 0.73447 })}>Kirimkan ucapan dan doa terbaik</p>
@@ -449,6 +457,7 @@ export const WishesSection: React.FC = () => {
         alt=""
         img={[280.36, CANVAS_H - 215.04, 202.88, 253.59]}
         clip={[352.72, CANVAS_H - 124.54, 87.28, 124.54]}
+        reveal="rise"
       />
     </section>
   );
