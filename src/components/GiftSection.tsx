@@ -119,7 +119,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
     >
       {/* 1. Burgundy velvet background */}
       <ClippedImage
-        src={`${MEDIA}/f36c62f2bb57c539b5c23e2684f29e0e.png`}
+        src={`${MEDIA}/f36c62f2bb57c539b5c23e2684f29e0e.webp`}
         alt="Burgundy Velvet Background"
         img={[-109.77, -26.78, 659.53, 1172.52]}
         clip={[0, 0, 440, CANVAS_H]}
@@ -128,7 +128,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
 
       {/* 2. Hanging bouquets in the top corners (the right one is mirrored) */}
       <ClippedImage
-        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
+        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}
         alt="Hanging Florals Left"
         img={[-34.35, -23.84, 145.03, 181.3]}
         clip={[0, 0, 110.68, 157.46]}
@@ -136,7 +136,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         parallax="hanging"
       />
       <ClippedImage
-        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
+        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}
         alt="Hanging Florals Right"
         img={[302.3, -23.84, 180.94, 226.17]}
         clip={[302.3, 0, 137.7, 202.34]}
@@ -214,7 +214,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
 
       {/* 6. Floor florals: left beside the second account, right in the bottom corner */}
       <ClippedImage
-        src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.png`}
+        src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.webp`}
         alt="Floor Florals Left"
         img={[-124.47, 457.44, 235.16, 293.94]}
         clip={[0, 562.34, 110.69, 189.06]}
@@ -222,7 +222,7 @@ export const GiftSection: React.FC<GiftSectionProps> = ({
         parallax="floor"
       />
       <ClippedImage
-        src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.png`}
+        src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.webp`}
         alt="Floor Florals Right"
         img={[280.36, CANVAS_H - (REFERENCE_H - 754.46), 202.88, 253.59]}
         clip={[352.72, CANVAS_H - (REFERENCE_H - 844.96), 87.28, REFERENCE_H - 844.96]}

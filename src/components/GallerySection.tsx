@@ -16,20 +16,20 @@ export interface GallerySectionProps {
 }
 
 const GALLERY_FILES = [
-  "0K0A0739-Edit.jpg",
-  "0K0A0741-Edit.jpg",
-  "0K0A0757-Edit.jpg",
-  "0K0A0758-Edit.jpg",
-  "0K0A0763-Edit.jpg",
-  "0K0A0764-Edit.jpg",
-  "0K0A0771-Edit.jpg",
-  "0K0A0775-Edit.jpg",
-  "0K0A0776-Edit.jpg",
-  "0K0A0777-Edit.jpg",
-  "0K0A0779-Edit.jpg",
-  "0K0A0785-Edit.jpg",
-  "0K0A0790-Edit.jpg",
-  "0K0A0797-Edit.jpg",
+  "0K0A0739-Edit.webp",
+  "0K0A0741-Edit.webp",
+  "0K0A0757-Edit.webp",
+  "0K0A0758-Edit.webp",
+  "0K0A0763-Edit.webp",
+  "0K0A0764-Edit.webp",
+  "0K0A0771-Edit.webp",
+  "0K0A0775-Edit.webp",
+  "0K0A0776-Edit.webp",
+  "0K0A0777-Edit.webp",
+  "0K0A0779-Edit.webp",
+  "0K0A0785-Edit.webp",
+  "0K0A0790-Edit.webp",
+  "0K0A0797-Edit.webp",
 ];
 
 const DEFAULT_PHOTOS: GalleryPhoto[] = GALLERY_FILES.map((file, idx) => ({
@@ -178,7 +178,7 @@ export const GallerySection: React.FC<GallerySectionProps> = ({ title = "Gallery
       {Array.from({ length: Math.ceil((height + 26.78) / 1172.52) }, (_, idx) => (
         <ClippedImage
           key={idx}
-          src={`${MEDIA}/f36c62f2bb57c539b5c23e2684f29e0e.png`}
+          src={`${MEDIA}/f36c62f2bb57c539b5c23e2684f29e0e.webp`}
           alt=""
           img={[-109.77, -26.78 + idx * 1172.52, 659.53, 1172.52]}
           clip={[0, 0, 440, height]}

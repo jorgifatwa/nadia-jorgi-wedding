@@ -3,6 +3,7 @@
 import React from "react";
 import { ClippedImage, MEDIA, canvasText, u, type Box } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
+import { COUNTDOWN_BLOCK_H, WeddingCountdown } from "./WeddingCountdown";
 
 export interface EventSectionProps {
   month?: string;
@@ -23,6 +24,14 @@ export interface EventSectionProps {
 // The reference continues with a Dress Code block (removed here), so the section ends 67.84px below the Maps button
 // (the same bottom spacing the reference keeps below the dress code swatches).
 const CANVAS_H = 1518.63;
+
+// Below the Maps button (not in the reference): the countdown heading starts this far under it, and the countdown block
+// takes the reference's bottom spacing with it
+const MAPS_BOTTOM = 1418.34 + 32.45;
+const COUNTDOWN_GAP = 50;
+
+// Emerald suede background in the reference (it covers the section; stretched evenly when the section grows past it)
+const BACKGROUND: Box = [-260.31, 0, 960.61, 1707.17];
 
 // The reference address block has 3 lines (24.8px each); longer addresses push everything below each block down
 const ADDRESS_LINE_H = 24.8;
@@ -138,7 +147,9 @@ export const EventSection: React.FC<EventSectionProps> = ({
   mapsUrl = "https://maps.app.goo.gl/TqZF9EDk8qnzkE7JA",
 }) => {
   const extra = Math.max(0, venueAddress.length - REFERENCE_ADDRESS_LINES) * ADDRESS_LINE_H;
-  const height = CANVAS_H + 2 * extra;
+  const height = CANVAS_H + 2 * extra + COUNTDOWN_GAP + COUNTDOWN_BLOCK_H;
+  const bgScale = Math.max(1, height / BACKGROUND[3]);
+  const background: Box = [220 - (BACKGROUND[2] * bgScale) / 2, 0, BACKGROUND[2] * bgScale, BACKGROUND[3] * bgScale];
 
   return (
     <section
@@ -161,7 +172,7 @@ export const EventSection: React.FC<EventSectionProps> = ({
       <ClippedImage
         src={`${MEDIA}/376c00ed1b80a48dc9e3293696c06776.jpg`}
         alt="Emerald Suede Background"
-        img={[-260.31, 0, 960.61, 1707.17]}
+        img={background}
         clip={[0, 0, 440, height]}
         skipReveal
       />
@@ -170,7 +181,7 @@ export const EventSection: React.FC<EventSectionProps> = ({
       <RotatedWord text="Save" center={[222.16, 136.11]} size={[315.13, 101.62]} fontSize={72.85} />
       <RotatedWord text="the" center={[244.66, 185.06]} size={[157.56, 50.81]} fontSize={36.42} />
       <RotatedWord text="Date" center={[228.02, 270.61]} size={[315.13, 101.62]} fontSize={72.85} />
-      <ClippedImage src="/images/butterfly_flapping.gif" alt="Flapping Butterfly" img={[333.52, 208.11, 30.86, 32.22]} reveal="pop" />
+      <ClippedImage src="/images/butterfly_flapping.webp" alt="Flapping Butterfly" img={[333.52, 208.11, 30.86, 32.22]} reveal="pop" />
 
       {/* 3. Date block: month, Akad | day | Resepsi between cream rules, year */}
       <p data-reveal="drop" style={textStyle([106.73, 348.72, 236.67], BODY_FONT, 18.367, 18.37, { letterSpacing: -0.037, bold: true, renderScale: DATE_BLOCK_SCALE })}>{month}</p>
@@ -197,13 +208,13 @@ export const EventSection: React.FC<EventSectionProps> = ({
       <p data-reveal="rise" style={textStyle([146.37, 463.74, 157.44], BODY_FONT, 21.43, 29.97, { bold: true, renderScale: 0.483403 })}>{year}</p>
 
       {/* 4. Venue illustration: wings, centre building, cypress trees, fountain */}
-      <ClippedImage src={`${MEDIA}/c7b9a8e80ff07fc9427f8bce49e38276.png`} alt="" img={[49.09, 536.34, 118.17, 123.86]} reveal="popup-left" revealDelay={800} />
-      <ClippedImage src={`${MEDIA}/6cbd981383bb0be28a2f55c68fb11767.png`} alt="" img={[272.74, 536.34, 118.17, 123.86]} reveal="popup-right" revealDelay={800} />
-      <ClippedImage src={`${MEDIA}/6a46472959bb93e40e93e6f7e53db377.png`} alt="Venue Illustration" img={[158.94, 552.97, 126.05, 94.09]} reveal="popup-up" revealDelay={350} />
-      <ClippedImage src={`${MEDIA}/061bb6589fe36bb9f07745260df53b3a.png`} alt="" img={[155, 573.1, 28, 77.03]} reveal="popup-up" revealDelay={1500} />
-      <ClippedImage src={`${MEDIA}/edb61eab0272fcfcb100ac74f196fa4b.png`} alt="" img={[256.98, 573.1, 31.94, 77.03]} reveal="popup-up" revealDelay={1650} />
-      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.png`} alt="" img={[96.36, 643.13, 247.28, 33.69]} clipPath={POOL_CLIP} reveal="popup-pool" />
-      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.png`} alt="" img={[96.36, 643.13, 247.28, 33.69]} clipPath={SPRAY_CLIP} reveal="popup-spray" revealDelay={2500} />
+      <ClippedImage src={`${MEDIA}/c7b9a8e80ff07fc9427f8bce49e38276.webp`} alt="" img={[49.09, 536.34, 118.17, 123.86]} reveal="popup-left" revealDelay={800} />
+      <ClippedImage src={`${MEDIA}/6cbd981383bb0be28a2f55c68fb11767.webp`} alt="" img={[272.74, 536.34, 118.17, 123.86]} reveal="popup-right" revealDelay={800} />
+      <ClippedImage src={`${MEDIA}/6a46472959bb93e40e93e6f7e53db377.webp`} alt="Venue Illustration" img={[158.94, 552.97, 126.05, 94.09]} reveal="popup-up" revealDelay={350} />
+      <ClippedImage src={`${MEDIA}/061bb6589fe36bb9f07745260df53b3a.webp`} alt="" img={[155, 573.1, 28, 77.03]} reveal="popup-up" revealDelay={1500} />
+      <ClippedImage src={`${MEDIA}/edb61eab0272fcfcb100ac74f196fa4b.webp`} alt="" img={[256.98, 573.1, 31.94, 77.03]} reveal="popup-up" revealDelay={1650} />
+      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.webp`} alt="" img={[96.36, 643.13, 247.28, 33.69]} clipPath={POOL_CLIP} reveal="popup-pool" />
+      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.webp`} alt="" img={[96.36, 643.13, 247.28, 33.69]} clipPath={SPRAY_CLIP} reveal="popup-spray" revealDelay={2500} />
 
       {/* 5. Akad details */}
       <p data-reveal="blur" style={textStyle([69.69, 741.57, 300.63], SCRIPT_FONT, 51.556, 72.15)}>Akad</p>
@@ -212,7 +223,7 @@ export const EventSection: React.FC<EventSectionProps> = ({
       {/* 6. Calla lily divider (rotated -98.54deg about its centre) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`${MEDIA}/01121590f317abfa83066572fb626dee.png`}
+        src={`${MEDIA}/01121590f317abfa83066572fb626dee.webp`}
         alt="Calla Lily Divider"
         data-reveal="pop"
         draggable={false}
@@ -252,7 +263,10 @@ export const EventSection: React.FC<EventSectionProps> = ({
         <span style={textStyle([0, 5.62, 172.15], BODY_FONT, 16.32, 20.29)}>Google Maps</span>
       </a>
 
-      {/* 9. Twinkling sparkles */}
+      {/* 9. Countdown to the akad + "Simpan ke Kalender" */}
+      <WeddingCountdown top={MAPS_BOTTOM + 2 * extra + COUNTDOWN_GAP} />
+
+      {/* 10. Twinkling sparkles */}
       <Sparkle at={[332.36, 495.02]} />
       <Sparkle at={[54.17, 623.37]} />
       <Sparkle at={[290.28, 699.86]} />

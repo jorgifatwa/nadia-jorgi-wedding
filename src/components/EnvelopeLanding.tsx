@@ -68,7 +68,7 @@ const SKIP_AFTER = 500;
 const MirroredDrapery: React.FC<{ y: number }> = ({ y }) => (
   // eslint-disable-next-line @next/next/no-img-element
   <img
-    src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.png`}
+    src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.webp`}
     alt=""
     draggable={false}
     data-reveal-skip=""
@@ -208,7 +208,7 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
         <MirroredDrapery y={BG[1] + BG[3]} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.png`}
+          src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.webp`}
           alt="Emerald Drapery Background"
           draggable={false}
           data-reveal-skip=""
@@ -224,7 +224,7 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
         />
 
         <ClippedImage
-          src={`${MEDIA}/bc67bf3451ac6a976bc528960337844d.png`}
+          src={`${MEDIA}/bc67bf3451ac6a976bc528960337844d.webp`}
           alt="Floor Florals Right"
           img={[298.06, 522.92, 237.47, 296.84]}
           clip={[298.06, 522.92, 141.94, 296.84]}
@@ -306,7 +306,7 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
         )}
 
         <ClippedImage
-          src={`${MEDIA}/bc67bf3451ac6a976bc528960337844d.png`}
+          src={`${MEDIA}/bc67bf3451ac6a976bc528960337844d.webp`}
           alt="Floor Florals Left"
           img={[-73.9, 607.77, 194.16, 242.7]}
           clip={[0, 607.77, 120.26, 242.7]}
@@ -317,7 +317,7 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
       {/* Layer 2: Section 1's drapery, faded in while the envelope settles (only during the transition) */}
       {stage !== "closed" && (
         <div className="env-section-bg" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: u(SECTION1_H), overflow: "hidden" }}>
-          <ClippedImage src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.png`} alt="" img={[-164.6, -100.4, 715.1, 1074.4]} clip={[0, 0, 440, SECTION1_H]} />
+          <ClippedImage src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.webp`} alt="" img={[-164.6, -100.4, 715.1, 1074.4]} clip={[0, 0, 440, SECTION1_H]} />
         </div>
       )}
 
@@ -378,16 +378,16 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`${MEDIA}/85044a4ee6708cc8da02bc4bad5f12f9.png`}
+            src={`${MEDIA}/85044a4ee6708cc8da02bc4bad5f12f9.webp`}
             alt="Wax Seal"
             draggable={false}
             className="animate-spin-seal"
             style={{ width: "100%", height: "100%", display: "block" }}
           />
         </div>
-        <ClippedImage src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`} alt="Envelope Florals" img={[13.65, 267.44, 197.2, 246.5]} className="env-bouquet" />
+        <ClippedImage src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`} alt="Envelope Florals" img={[13.65, 267.44, 197.2, 246.5]} className="env-bouquet" />
         <ClippedImage
-          src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
+          src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}
           alt="Envelope Florals Small"
           img={[298.06, 452.92, 98.08, 122.61]}
           className="env-bouquet"

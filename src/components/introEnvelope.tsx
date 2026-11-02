@@ -11,7 +11,7 @@ export const ENVELOPE_BODY: Box = [68.3, ENVELOPE_HINGE_Y, 301.3, ENVELOPE_BOTTO
 
 // Closed envelope (back view, flap down). Its flap is a triangle down to the lace tip at 68% of the image height, cut
 // out of the same image so it can fold on its own; the paper sits inside 2% / 1.9% transparent margins.
-export const CLOSED_ENVELOPE_SRC = `${MEDIA}/7b6f2605f13843668eef811673008950.png`;
+export const CLOSED_ENVELOPE_SRC = `${MEDIA}/7b6f2605f13843668eef811673008950.webp`;
 export const CLOSED_FLAP_CLIP = "polygon(0% 0%, 100% 0%, 100% 1.9%, 50% 68%, 0% 1.9%)";
 export const CLOSED_REST_CLIP = "polygon(0% 1.9%, 50% 68%, 100% 1.9%, 100% 100%, 0% 100%)";
 const CLOSED_MARGIN_X = 0.02;
@@ -80,13 +80,13 @@ interface LayerProps {
 }
 
 export const EnvelopeBack: React.FC<LayerProps> = (props) => (
-  <ClippedImage src={`${MEDIA}/1e7bcbf0e72a46a3fc5a00d154822f44.png`} alt="Envelope Back" img={[68.3, 402.3, 301.3, 320.6]} {...props} />
+  <ClippedImage src={`${MEDIA}/1e7bcbf0e72a46a3fc5a00d154822f44.webp`} alt="Envelope Back" img={[68.3, 402.3, 301.3, 320.6]} {...props} />
 );
 
 // Burgundy velvet inside the envelope and its open flap
 export const EnvelopeLining: React.FC<LayerProps> = (props) => (
   <ClippedImage
-    src={`${MEDIA}/fd53e8793519ee86df4fd95a8217d781.png`}
+    src={`${MEDIA}/fd53e8793519ee86df4fd95a8217d781.webp`}
     alt="Burgundy Velvet Lining"
     img={[72.2, 281.7, 293.6, 522.5]}
     clip={[72.2, 421.7, 293.5, 242.5]}
@@ -97,7 +97,7 @@ export const EnvelopeLining: React.FC<LayerProps> = (props) => (
 
 export const EnvelopeFront: React.FC<LayerProps> = (props) => (
   <ClippedImage
-    src={`${MEDIA}/4eb403d7039697c0864925cfaaa203ee.png`}
+    src={`${MEDIA}/4eb403d7039697c0864925cfaaa203ee.webp`}
     alt="Envelope Front Pocket"
     img={[32.6, 366.8, 375.5, 469.4]}
     clip={[67.7, 532.2, 308.6, 190.7]}
@@ -108,7 +108,7 @@ export const EnvelopeFront: React.FC<LayerProps> = (props) => (
 // Oval lace doily card carrying the QS Ar-Rum 21 verse
 export const LaceCard: React.FC<LayerProps> = (props) => (
   <ClippedImage
-    src={`${MEDIA}/ca52e90c3dc4ba78c450200739a6e3c8.png`}
+    src={`${MEDIA}/ca52e90c3dc4ba78c450200739a6e3c8.webp`}
     alt="Lace Doily Card"
     img={[63.3, 122.9, 304.3, 434.7]}
     clip={[67.7, 130.1, 299.9, 427.4]}

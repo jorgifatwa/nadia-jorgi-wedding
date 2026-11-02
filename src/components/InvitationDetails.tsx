@@ -87,7 +87,7 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = ({ introPlaye
     >
       {/* 1. Emerald drapery + red damask carpet background */}
       <ClippedImage
-        src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.png`}
+        src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.webp`}
         alt="Emerald Drapery Background"
         img={[-164.6, -100.4, 715.1, 1074.4]}
         clip={[0, 0, CANVAS_W, CANVAS_H]}
@@ -96,7 +96,7 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = ({ introPlaye
 
       {/* 2. Large top-left bouquet (behind the lace card) */}
       <ClippedImage
-        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
+        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}
         alt="Top Left Flower Bouquet"
         img={[15.6, 88.1, 262, 327.5]}
         reveal="sway"
@@ -111,7 +111,7 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = ({ introPlaye
 
       {/* 7. Right cascading bouquet (bleeds off the right edge) */}
       <ClippedImage
-        src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.png`}
+        src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.webp`}
         alt="Right Side Cascading Flowers"
         img={[158.3, 431.9, 281.7, 352.1]}
         clip={[258.8, 557.5, 181.2, 226.5]}
@@ -236,25 +236,25 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = ({ introPlaye
 
       {/* 11. Small bouquet copies layered over the card's top-left edge */}
       <ClippedImage
-        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
+        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}
         alt="Top Left Flower Accent"
         img={[44, 191.2, 134.5, 168.2]}
         reveal="sway"
       />
       <ClippedImage
-        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
+        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}
         alt="Top Flower Accent"
         img={[111.3, 117, 134.5, 168.2]}
         reveal="sway-right"
       />
 
       {/* 12. Flapping white butterfly */}
-      <ClippedImage src="/images/butterfly_flapping.gif" alt="Flapping White Butterfly" img={[156.3, 108.9, 54.3, 56.7]} reveal="pop" />
+      <ClippedImage src="/images/butterfly_flapping.webp" alt="Flapping White Butterfly" img={[156.3, 108.9, 54.3, 56.7]} reveal="pop" />
 
       {/* 13. Burgundy silk tassel (rotated ~1.23deg about its top-left, as in the reference) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`${MEDIA}/c908061d4359aa428f27db3c46c60274.png`}
+        src={`${MEDIA}/c908061d4359aa428f27db3c46c60274.webp`}
         alt="Burgundy Silk Tassel"
         data-reveal="drop"
         draggable={false}

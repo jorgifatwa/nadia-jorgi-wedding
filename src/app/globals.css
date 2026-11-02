@@ -704,3 +704,86 @@ html {
     display: none;
   }
 }
+
+/* Countdown: each new number slides up into its box */
+.countdown-tick {
+  display: inline-block;
+  animation: countdownTick 0.45s cubic-bezier(0.22, 0.7, 0.2, 1);
+}
+
+@keyframes countdownTick {
+  from {
+    translate: 0 40%;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .countdown-tick {
+    animation: none;
+  }
+}
+
+/* Closing section: petals drift down from the hanging bouquets, swaying and tumbling; they wait until the section is
+   revealed and are left out entirely for reduced motion */
+.falling-petal {
+  position: absolute;
+  opacity: 0;
+  animation: petalFall var(--duration) linear var(--delay) infinite both;
+}
+
+.falling-petal > svg {
+  display: block;
+  animation: petalTumble 2.4s ease-in-out infinite alternate;
+}
+
+.reveal-scope > :not([data-revealed]) > .falling-petal,
+.reveal-scope > :not([data-revealed]) > .falling-petal > svg {
+  animation-play-state: paused;
+}
+
+@keyframes petalFall {
+  0% {
+    translate: 0 0;
+    rotate: 0deg;
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.85;
+  }
+  25% {
+    translate: var(--sway) calc(var(--fall) * 0.25);
+    rotate: 70deg;
+  }
+  50% {
+    translate: calc(var(--sway) * -1) calc(var(--fall) * 0.5);
+    rotate: 160deg;
+  }
+  75% {
+    translate: var(--sway) calc(var(--fall) * 0.75);
+    rotate: 250deg;
+  }
+  92% {
+    opacity: 0.85;
+  }
+  100% {
+    translate: 0 var(--fall);
+    rotate: 330deg;
+    opacity: 0;
+  }
+}
+
+@keyframes petalTumble {
+  from {
+    scale: 1 1;
+  }
+  to {
+    scale: 0.4 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .falling-petal {
+    display: none;
+  }
+}

@@ -57,7 +57,7 @@ const bioLines = (lines: string[], box: [x: number, y: number, w: number], align
 const PortraitFrame: React.FC<{ photo: string; alt: string; clip: Box; frame: Box; reveal: Reveal }> = ({ photo, alt, clip, frame, reveal }) => (
   <>
     <ClippedImage src={photo} alt={alt} img={clip} clipPath={PHOTO_CLIP} objectFit="cover" reveal={reveal} />
-    <ClippedImage src={`${MEDIA}/869fde431be61aa57e2281cbbdd7e1ac.png`} alt="Gold Oval Frame" img={frame} reveal={reveal} />
+    <ClippedImage src={`${MEDIA}/869fde431be61aa57e2281cbbdd7e1ac.webp`} alt="Gold Oval Frame" img={frame} reveal={reveal} />
   </>
 );
 
@@ -86,7 +86,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
     >
       {/* 1. Burgundy velvet background */}
       <ClippedImage
-        src={`${MEDIA}/f36c62f2bb57c539b5c23e2684f29e0e.png`}
+        src={`${MEDIA}/f36c62f2bb57c539b5c23e2684f29e0e.webp`}
         alt="Burgundy Velvet Background"
         img={[-137.4, -29.02, 714.78, 1270.73]}
         clip={[0, 0, 440, CANVAS_H]}
@@ -108,7 +108,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
       {/* 4. Bride: portrait (left) + name & parents (right); the full names wrap to two lines, so the reference
              name/parents block is re-centred on the portrait (name moved up and parents down by half a line) */}
       <PortraitFrame
-        photo="/images/catin-wanita-oval.jpg"
+        photo="/images/catin-wanita-oval.webp"
         alt={brideName.replace("\n", " ")}
         clip={[31.82, 252.42, 153.45, 183.05]}
         frame={[31.78, 252.42, 153.53, 183.05]}
@@ -131,7 +131,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
       </p>
       {bioLines(groomBio, [21.97, 600.87, 199.61], "right")}
       <PortraitFrame
-        photo="/images/catin-pria-oval.jpg"
+        photo="/images/catin-pria-oval.webp"
         alt={groomName.replace("\n", " ")}
         clip={[241.74, 522.91, 153.45, 183.05]}
         frame={[241.7, 522.91, 153.53, 183.05]}
@@ -140,7 +140,7 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
 
       {/* 7. Bottom-left floor florals */}
       <ClippedImage
-        src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.png`}
+        src={`${MEDIA}/e3bde292a4e6ad355db1ff202a901599.webp`}
         alt="Floor Florals Left"
         img={[-149.38, 513.26, 277.59, 346.98]}
         clip={[0, 637.08, 128.22, 183.97]}
@@ -150,13 +150,13 @@ export const CoupleSection: React.FC<CoupleSectionProps> = ({
 
       {/* 8. Bottom-right bouquet: lower part in this section, continuation overlapping the top of Section 3 */}
       <ClippedImage
-        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
+        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}
         alt="Florals Right"
         img={[330.27, 748.67, 163.25, 204.08]}
         clip={[330.27, 748.67, 109.73, CANVAS_H - 748.67]}
       />
       <ClippedImage
-        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.png`}
+        src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}
         alt="Florals Bridging to Section 3"
         img={[324.37, 755.28, 188.47, 235.58]}
         clip={[351.34, CANVAS_H, 88.66, 170.82]}
