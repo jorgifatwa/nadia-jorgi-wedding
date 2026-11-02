@@ -10,6 +10,7 @@ import { GiftSection } from "@/components/GiftSection";
 import { GallerySection } from "@/components/GallerySection";
 import { WishesSection } from "@/components/WishesSection";
 import { RevealObserver } from "@/components/RevealObserver";
+import { ContentGuard } from "@/components/ContentGuard";
 import { ClosingSection } from "@/components/ClosingSection";
 
 export default function DetailsPage() {
@@ -17,6 +18,7 @@ export default function DetailsPage() {
     <WeddingAudioProvider>
       <ToastProvider>
         <RevealObserver />
+        <ContentGuard />
         <main
           className="min-h-screen w-full flex justify-center items-center overflow-x-hidden"
           style={{

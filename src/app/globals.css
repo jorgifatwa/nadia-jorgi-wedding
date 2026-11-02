@@ -291,3 +291,10 @@ html {
 .admin-spinner {
   animation: wishSpin 0.7s linear infinite;
 }
+
+/* Invitation pages only (see ContentGuard): no long-press save menu or drag on images */
+.content-guard img {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}

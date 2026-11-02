@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { readJson, updateJson } from "./jsonStore";
 import { key, redis } from "./redis";
+import type { Attendance } from "./wishValidation";
 
 // Invitation guest list and the WhatsApp message settings. Redis: a hash of id -> guest plus a sorted set in insertion
 // order, and a JSON settings value; locally: data/guests.json and data/settings.json.
@@ -12,6 +13,9 @@ export interface Guest {
   phone: string | null;
   createdAt: string;
   sentAt: string | null;
+  // Set when the guest sends a wish from their personal link
+  attendance?: Attendance | null;
+  respondedAt?: string | null;
 }
 
 export interface InviteSettings {
@@ -60,6 +64,11 @@ export const listGuests = async (): Promise<Guest[]> => {
   return readJson<Guest[]>(GUESTS, []);
 };
 
+export const getGuest = async (id: string): Promise<Guest | null> => {
+  if (redis) return (await redis.hget<Guest>(GUEST_HASH, id)) ?? null;
+  return (await readJson<Guest[]>(GUESTS, [])).find((guest) => guest.id === id) ?? null;
+};
+
 export const addGuests = async (entries: { name: string; phone: string | null }[]): Promise<Guest[]> => {
   const now = new Date().toISOString();
   const added: Guest[] = entries.map((entry) => ({ id: randomUUID(), name: entry.name, phone: entry.phone, createdAt: now, sentAt: null }));
@@ -76,7 +85,7 @@ export const addGuests = async (entries: { name: string; phone: string | null }[
   return updateJson<Guest[], Guest[]>(GUESTS, [], (guests) => ({ data: [...guests, ...added], result: added }));
 };
 
-export const updateGuest = async (id: string, changes: Partial<Pick<Guest, "name" | "phone" | "sentAt">>): Promise<Guest | null> => {
+export const updateGuest = async (id: string, changes: Partial<Pick<Guest, "name" | "phone" | "sentAt" | "attendance" | "respondedAt">>): Promise<Guest | null> => {
   if (redis) {
     const current = await redis.hget<Guest>(GUEST_HASH, id);
     if (!current) return null;

@@ -53,6 +53,13 @@ const fieldStyle: React.CSSProperties = {
   lineHeight: 1.35,
 };
 
+const LockIcon: React.FC = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" style={{ width: u(15), height: u(15), flexShrink: 0, opacity: 0.7 }} fill="none" stroke="currentColor" strokeWidth={2}>
+    <rect x="5" y="11" width="14" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
+
 const AttendanceBadge: React.FC<{ value: Attendance }> = ({ value }) => {
   const present = value === "hadir";
   return (
@@ -94,6 +101,8 @@ export const WishesSection: React.FC = () => {
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState("");
+  // Guest from a personal invitation link (?g=<id>): the name comes from the guest list and can't be edited
+  const [guestId, setGuestId] = useState<string | null>(null);
   const [attendance, setAttendance] = useState("");
   const [message, setMessage] = useState("");
   const [website, setWebsite] = useState("");
@@ -126,19 +135,35 @@ export const WishesSection: React.FC = () => {
   }, [loadWishes]);
 
   useEffect(() => {
-    // Guests arriving from a personalised WhatsApp link (?to=Name) get their name prefilled
-    const guest = new URLSearchParams(window.location.search).get("to")?.trim();
-    if (guest) {
-      const prefill = setTimeout(() => setName((current) => current || guest.slice(0, NAME_MAX)), 0);
-      return () => clearTimeout(prefill);
-    }
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("g")?.trim();
+    const to = params.get("to")?.trim();
+    let cancelled = false;
+    const prefill = setTimeout(async () => {
+      // A shared link without a valid guest code still prefills ?to=Name, but leaves it editable
+      if (to) setName((current) => current || to.slice(0, NAME_MAX));
+      if (!id) return;
+      try {
+        const res = await fetch(`/api/wishes/guest?g=${encodeURIComponent(id)}`, { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { name: string };
+        setName(data.name);
+        setGuestId(id);
+      } catch {
+        // Stay with the editable name
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(prefill);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
 
-    const error = validateWish({ name, message, attendance });
+    const error = validateWish({ name: guestId ? name.slice(0, NAME_MAX) : name, message, attendance });
     if (error) {
       setStatus({ kind: "error", text: error });
       return;
@@ -152,7 +177,7 @@ export const WishesSection: React.FC = () => {
       const res = await fetch("/api/wishes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, message, attendance, website }),
+        body: JSON.stringify({ name, message, attendance, website, ...(guestId ? { guestId } : {}) }),
       });
       const data = (await res.json()) as { wish?: Wish; error?: string };
       await new Promise((resolve) => setTimeout(resolve, Math.max(0, MIN_LOADING_MS - (Date.now() - started))));
@@ -220,17 +245,27 @@ export const WishesSection: React.FC = () => {
              phones pushes the list down instead of overlapping it */}
       <div style={{ position: "absolute", left: u(40), top: u(208), width: u(360), display: "flex", flexDirection: "column" }}>
         <form onSubmit={handleSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: u(10) }}>
-          <input
-            className="wish-field"
-            type="text"
-            value={name}
-            maxLength={NAME_MAX}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nama Anda"
-            aria-label="Nama"
-            autoComplete="name"
-            style={fieldStyle}
-          />
+          {guestId ? (
+            <div
+              aria-label="Nama"
+              style={{ ...fieldStyle, display: "flex", alignItems: "center", gap: u(8), backgroundColor: "rgba(10, 22, 15, 0.2)", borderStyle: "dashed" }}
+            >
+              <LockIcon />
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+            </div>
+          ) : (
+            <input
+              className="wish-field"
+              type="text"
+              value={name}
+              maxLength={NAME_MAX}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nama Anda"
+              aria-label="Nama"
+              autoComplete="name"
+              style={fieldStyle}
+            />
+          )}
           <select
             className="wish-field wish-select"
             value={attendance}

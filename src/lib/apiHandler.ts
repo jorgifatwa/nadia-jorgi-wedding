@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_rethrow } from "next/navigation";
 import { storageMode } from "./redis";
 
 // Wraps a route handler so storage failures reach the client as a JSON message instead of a bare 500
@@ -8,6 +9,7 @@ export const withErrors =
     try {
       return await handler(...args);
     } catch (err) {
+      unstable_rethrow(err); // Next.js control flow (prerender bail-out, redirects) must pass through
       console.error(err);
       const error =
         storageMode() === "missing"

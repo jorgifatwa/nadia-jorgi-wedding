@@ -12,6 +12,8 @@ export interface Wish {
   name: string;
   message: string;
   attendance?: Attendance;
+  // Guest list entry the wish was sent from (personal invitation link)
+  guestId?: string;
   createdAt: string;
 }
 
@@ -31,8 +33,8 @@ export const listWishes = async (limit = 200): Promise<Wish[]> => {
   return wishes.slice(0, limit);
 };
 
-export const addWish = async (name: string, message: string, attendance: Attendance): Promise<Wish> => {
-  const wish: Wish = { id: randomUUID(), name, message, attendance, createdAt: new Date().toISOString() };
+export const addWish = async (name: string, message: string, attendance: Attendance, guestId?: string): Promise<Wish> => {
+  const wish: Wish = { id: randomUUID(), name, message, attendance, ...(guestId ? { guestId } : {}), createdAt: new Date().toISOString() };
   if (redis) {
     await redis.multi().hset(HASH, { [wish.id]: wish }).zadd(INDEX, { score: Date.now(), member: wish.id }).exec();
     return wish;

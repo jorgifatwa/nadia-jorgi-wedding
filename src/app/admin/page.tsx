@@ -21,6 +21,8 @@ interface Guest {
   phone: string | null;
   createdAt: string;
   sentAt: string | null;
+  attendance?: Attendance | null;
+  respondedAt?: string | null;
 }
 
 interface InviteSettings {
@@ -40,10 +42,12 @@ const api = async <T,>(url: string, init?: RequestInit): Promise<T> => {
 const formatDate = (iso: string) =>
   new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
-const inviteLink = (baseUrl: string, name: string) => `${baseUrl || window.location.origin}/?to=${encodeURIComponent(name)}`;
+// Personal link: ?to shows the name on the envelope, ?g ties wishes sent from it to this guest (name locked in the form)
+const inviteLink = (baseUrl: string, guest: { name: string; id?: string }) =>
+  `${baseUrl || window.location.origin}/?to=${encodeURIComponent(guest.name)}${guest.id ? `&g=${guest.id}` : ""}`;
 
-const renderMessage = (template: string, baseUrl: string, name: string) =>
-  template.replaceAll("{nama}", name).replaceAll("{link}", inviteLink(baseUrl, name));
+const renderMessage = (template: string, baseUrl: string, guest: { name: string; id?: string }) =>
+  template.replaceAll("{nama}", guest.name).replaceAll("{link}", inviteLink(baseUrl, guest));
 
 const whatsappUrl = (phone: string | null, text: string) =>
   `https://wa.me/${phone ?? ""}?text=${encodeURIComponent(text)}`;
@@ -74,7 +78,7 @@ const Button: React.FC<
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${styles} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${styles} ${className}`}
     />
   );
 };
@@ -386,7 +390,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
             ))}
             {!loading && visible.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-[#8a8374]">
+                <td colSpan={4} className="px-4 py-12 text-center text-[#8a8374]">
                   {wishes.length === 0 ? "Belum ada ucapan yang masuk." : "Tidak ada ucapan yang cocok dengan pencarian."}
                 </td>
               </tr>
@@ -481,7 +485,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   };
 
   const sendWhatsApp = (guest: Guest) => {
-    window.open(whatsappUrl(guest.phone, renderMessage(settings.template, settings.baseUrl, guest.name)), "_blank", "noopener");
+    window.open(whatsappUrl(guest.phone, renderMessage(settings.template, settings.baseUrl, guest)), "_blank", "noopener");
     if (!guest.sentAt) setSent(guest, true);
   };
 
@@ -625,7 +629,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                   <th className="px-4 py-3 font-medium">Nama</th>
                   <th className="w-44 px-4 py-3 font-medium">WhatsApp</th>
                   <th className="w-40 px-4 py-3 font-medium">Status</th>
-                  <th className="w-[290px] px-4 py-3" />
+                  <th className="w-[270px] px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
@@ -636,7 +640,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                     className={`cursor-pointer ${previewGuest?.id === guest.id ? "bg-[#f5f1e8]" : "hover:bg-[#fcfbf8]"}`}
                   >
                     <td className="px-4 py-3 font-medium">{guest.name}</td>
-                    <td className="px-4 py-3 text-[#3d463f]">{guest.phone ? formatPhone(guest.phone) : <span className="text-[#b3ab9c]">Pilih saat kirim</span>}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-[#3d463f]">{guest.phone ? formatPhone(guest.phone) : <span className="text-[#b3ab9c]">Pilih saat kirim</span>}</td>
                     <td className="px-4 py-3">
                       {guest.sentAt ? (
                         <button
@@ -652,13 +656,27 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                       ) : (
                         <span className="rounded-full bg-[#fbf3e3] px-2.5 py-0.5 text-xs font-medium text-[#8a5a0e]">Belum dikirim</span>
                       )}
+                      <div className="mt-1.5">
+                        {guest.attendance ? (
+                          <span
+                            title={guest.respondedAt ? formatDate(guest.respondedAt) : undefined}
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              guest.attendance === "hadir" ? "bg-[#e6f4ea] text-[#1f6b3a]" : "bg-[#f3efe7] text-[#6f6858]"
+                            }`}
+                          >
+                            {attendanceLabel(guest.attendance)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[#b3ab9c]">Belum konfirmasi</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-2">
                         <Button variant="whatsapp" onClick={() => sendWhatsApp(guest)} className="px-2.5 py-1.5 text-xs">
                           Kirim WA
                         </Button>
-                        <Button onClick={() => copy(inviteLink(settings.baseUrl, guest.name), "Link undangan")} className="px-2.5 py-1.5 text-xs">
+                        <Button onClick={() => copy(inviteLink(settings.baseUrl, guest), "Link undangan")} className="px-2.5 py-1.5 text-xs">
                           Salin Link
                         </Button>
                         <Button variant="danger" onClick={() => remove(guest)} className="px-2.5 py-1.5 text-xs">
@@ -670,7 +688,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                 ))}
                 {!loading && visible.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-12 text-center text-[#8a8374]">
+                    <td colSpan={5} className="px-4 py-12 text-center text-[#8a8374]">
                       {guests.length === 0 ? "Belum ada tamu. Tambahkan tamu di atas." : "Tidak ada tamu yang cocok."}
                     </td>
                   </tr>
@@ -729,14 +747,14 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               <span className="text-xs text-[#6f6858]">untuk: {previewName}</span>
             </div>
             <div className="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-[#dcf8c6] p-3 text-sm text-[#1f2a22] shadow-sm">
-              {renderMessage(settings.template, settings.baseUrl, previewName)}
+              {renderMessage(settings.template, settings.baseUrl, previewGuest ?? { name: previewName })}
             </div>
             {previewGuest && (
               <div className="mt-3 flex gap-2">
                 <Button variant="whatsapp" onClick={() => sendWhatsApp(previewGuest)}>
                   Kirim ke {previewGuest.name.split(" ")[0]}
                 </Button>
-                <Button onClick={() => copy(renderMessage(settings.template, settings.baseUrl, previewGuest.name), "Pesan")}>Salin Pesan</Button>
+                <Button onClick={() => copy(renderMessage(settings.template, settings.baseUrl, previewGuest), "Pesan")}>Salin Pesan</Button>
               </div>
             )}
           </div>

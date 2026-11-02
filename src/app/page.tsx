@@ -11,6 +11,7 @@ import { GiftSection } from "@/components/GiftSection";
 import { GallerySection } from "@/components/GallerySection";
 import { WishesSection } from "@/components/WishesSection";
 import { RevealObserver } from "@/components/RevealObserver";
+import { ContentGuard } from "@/components/ContentGuard";
 import { ClosingSection } from "@/components/ClosingSection";
 
 export default function Home() {
@@ -20,6 +21,7 @@ export default function Home() {
     <WeddingAudioProvider>
       <ToastProvider>
         <RevealObserver />
+        <ContentGuard />
         {/* On Desktop/PC: Centered clean mobile view on sleek dark luxury backdrop */}
         {/* On Mobile: 100% full screen view without any white bars */}
         <main
