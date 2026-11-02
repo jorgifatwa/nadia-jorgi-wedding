@@ -14,6 +14,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - The user runs and manages their own development server (`pnpm run dev`) manually in their own terminal.
 - **Mandatory Self-Testing Rule**: Selalu test sendiri terlebih dahulu untuk memastikan tampilan, posisi, styling, dan fungsionalitas sudah 100% benar dan sesuai sebelum memberikan laporan hasil ke pengguna. Jangan pernah berasumsi atau memberikan hasil tanpa verifikasi menyeluruh terlebih dahulu.
 
+## Git Push Rule
+- **Setiap task selesai, langsung commit dan push ke GitHub** (`origin main`, https://github.com/jorgifatwa/nadia-jorgi-wedding) tanpa menunggu diminta. Push dilakukan setelah self-testing dan `pnpm run build` lolos; Vercel otomatis deploy dari push ini.
+- Jangan pernah ikut meng-commit `.env.local`, `data/`, atau `_unused-assets/`.
+
 ## Strict Scope Rule: Section 4 (EventSection Text Sizing & Visual Alignment)
 - **FOCUS ON SECTION 4 (`src/components/EventSection.tsx`)**: Match text sizes, font styles, typography, spacing, and layout in Section 4 precisely with the reference image and Canva specifications.
 - All modifications, styling, alignment, and testing MUST be strictly limited to Section 4 (`src/components/EventSection.tsx`).
