@@ -515,7 +515,9 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       {error && <p className="mt-4 rounded-lg bg-[#fdf1f1] p-3 text-sm text-[#9b1c1c]">{error}</p>}
 
       <div className="mt-4 overflow-hidden rounded-xl border border-[#e5dfd3] bg-white">
-        <table className={`w-full text-left text-sm transition-opacity ${loading && loaded ? "opacity-50" : ""}`} aria-busy={loading}>
+        {/* Fixed layout: a long message (even one unbroken word) wraps inside its column instead of pushing the
+            delete button out of view */}
+        <table className={`w-full table-fixed text-left text-sm transition-opacity ${loading && loaded ? "opacity-50" : ""}`} aria-busy={loading}>
           {loading && loaded && <LoadingCaption />}
           <thead className="bg-[#faf8f4] text-xs uppercase tracking-wider text-[#8a8374]">
             <tr>
@@ -530,7 +532,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
             {!loaded && <SkeletonRows columns={["w-28", "w-16", "w-full", "w-28", "ml-auto w-14"]} />}
             {pagination.pageItems.map((wish) => (
               <tr key={wish.id} className="align-top hover:bg-[#fcfbf8]">
-                <td className="px-4 py-3 font-medium">{wish.name}</td>
+                <td className="px-4 py-3 font-medium [overflow-wrap:anywhere]">{wish.name}</td>
                 <td className="px-4 py-3">
                   {wish.attendance ? (
                     <span
@@ -544,7 +546,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                     <span className="text-[#b3ab9c]">-</span>
                   )}
                 </td>
-                <td className="whitespace-pre-line px-4 py-3 text-[#3d463f]">{wish.message}</td>
+                <td className="whitespace-pre-line px-4 py-3 text-[#3d463f] [overflow-wrap:anywhere]">{wish.message}</td>
                 <td className="px-4 py-3 text-[#8a8374]">{formatDate(wish.createdAt)}</td>
                 <td className="px-4 py-3 text-right">
                   <Button variant="danger" onClick={() => remove(wish)} className="px-2.5 py-1.5 text-xs">
@@ -820,7 +822,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                     onClick={() => setPreviewId(guest.id)}
                     className={`cursor-pointer ${previewGuest?.id === guest.id ? "bg-[#f5f1e8]" : "hover:bg-[#fcfbf8]"}`}
                   >
-                    <td className="px-4 py-3 font-medium">{guest.name}</td>
+                    <td className="px-4 py-3 font-medium [overflow-wrap:anywhere]">{guest.name}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-[#3d463f]">{guest.phone ? formatPhone(guest.phone) : <span className="text-[#b3ab9c]">Pilih saat kirim</span>}</td>
                     <td className="px-4 py-3">
                       {guest.sentAt ? (
@@ -1163,7 +1165,7 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                 {!loaded && <SkeletonRows columns={["w-36", "w-24", "w-24", "ml-auto w-32"]} />}
                 {pagination.pageItems.map((guest) => (
                   <tr key={guest.id}>
-                    <td className="px-4 py-3 font-medium">{guest.name}</td>
+                    <td className="px-4 py-3 font-medium [overflow-wrap:anywhere]">{guest.name}</td>
                     <td className="px-4 py-3 text-[#3d463f]">{sourceLabel(guest, groupNames)}</td>
                     <td className="px-4 py-3">
                       {guest.checkedInAt ? (
