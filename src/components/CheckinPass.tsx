@@ -3,9 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-// The guest's QR for the reception desk. A personal link (?g=<guest id>) shows that guest's QR straight away; a guest
-// from a group link types their name once to get a QR of their own, which this phone then remembers. The QR holds the
-// guest's invitation link, so scanning it with an ordinary camera just opens the invitation.
+// The guest's QR for the reception desk. A personal link (?g=<guest with a WhatsApp number>) shows that guest's QR
+// straight away. A group invitation's link (?g=<guest without a number>, shared in a WhatsApp group) or the general
+// link has no single person behind it: each guest types their name once to get a QR of their own, which this phone
+// then remembers. The QR holds the guest's invitation link, so scanning it with an ordinary camera just opens the
+// invitation.
 
 const STORAGE_KEY = "checkin-pass";
 const NAME_MAX = 80;
@@ -37,27 +39,31 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
   // "loading" while the personal link's guest is looked up, then the QR or the name form
   const [view, setView] = useState<"loading" | "form" | "pass">("loading");
   const [name, setName] = useState("");
+  // The group invitation whose link this is, if any: new QRs are filed under it
+  const [group, setGroup] = useState<{ id: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const start = setTimeout(async () => {
-      const params = new URLSearchParams(window.location.search);
-      const id = params.get("g")?.trim();
+      const id = new URLSearchParams(window.location.search).get("g")?.trim();
       if (id) {
         try {
           const res = await fetch(`/api/wishes/guest?g=${encodeURIComponent(id)}`, { cache: "no-store" });
           if (res.ok) {
-            const data = (await res.json()) as { name: string };
-            if (!cancelled) {
+            // `locked`: the guest has a WhatsApp number, so this is one person's own link
+            const data = (await res.json()) as { name: string; locked: boolean };
+            if (cancelled) return;
+            if (data.locked) {
               setPass({ id, name: data.name, self: false });
               setView("pass");
+              return;
             }
-            return;
+            setGroup({ id, name: data.name });
           }
         } catch {
-          // Fall back to a stored or new QR
+          // Treat it as the general link
         }
       }
       if (cancelled) return;
@@ -66,7 +72,6 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
         setPass(stored);
         setView("pass");
       } else {
-        setName(params.get("to")?.trim().slice(0, NAME_MAX) ?? "");
         setView("form");
       }
     }, 0);
@@ -104,7 +109,7 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/pass", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      const res = await fetch("/api/pass", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, group: group?.id }) });
       const data = (await res.json().catch(() => ({}))) as { id?: string; name?: string; error?: string };
       if (!res.ok || !data.id || !data.name) throw new Error(data.error ?? "QR gagal dibuat, coba lagi.");
       const created = { id: data.id, name: data.name, self: true };
@@ -146,7 +151,8 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
         {view === "form" && (
           <form onSubmit={createPass} style={{ marginTop: 8 }}>
             <p className="checkin-pass-note">
-              Tuliskan nama Anda untuk membuat QR check-in. Tunjukkan QR ini kepada penerima tamu saat tiba di lokasi acara.
+              {group ? "Undangan ini dibagikan untuk beberapa tamu. " : ""}Tuliskan nama Anda untuk membuat QR check-in pribadi. Tunjukkan
+              QR ini kepada penerima tamu saat tiba di lokasi acara.
             </p>
             <input
               value={name}

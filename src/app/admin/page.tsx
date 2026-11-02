@@ -26,6 +26,7 @@ interface Guest {
   // Added in this admin, took a QR from a group link, or added at the reception desk; missing = "admin"
   source?: "admin" | "self" | "desk";
   checkedInAt?: string | null;
+  groupId?: string | null;
 }
 
 interface InviteSettings {
@@ -951,12 +952,23 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   );
 };
 
-const SOURCE_LABELS = { admin: "Undangan pribadi", self: "Link grup", desk: "Ditambah di lokasi" } as const;
+// An admin entry without a WhatsApp number is a group invitation (shared in a WhatsApp group), not a person
+const isGroupInvite = (guest: Guest) => (guest.source ?? "admin") === "admin" && !guest.phone;
 
-// QR check-in at the venue: the desk PIN, the desk page link and who has arrived (all guests, whatever their source)
+const sourceLabel = (guest: Guest, groupNames: Map<string, string>) => {
+  if (guest.source === "self") {
+    const group = guest.groupId ? groupNames.get(guest.groupId) : undefined;
+    return group ? `Grup: ${group}` : "Link umum";
+  }
+  return guest.source === "desk" ? "Ditambah di lokasi" : "Undangan pribadi";
+};
+
+// QR check-in at the venue: the desk PIN, the desk page link and who has arrived (every person, whatever their source;
+// group invitations themselves are left out, their members are listed with the group's name)
 const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   const confirm = useConfirm();
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [groupNames, setGroupNames] = useState<Map<string, string>>(new Map());
   const [pinSet, setPinSet] = useState<boolean | null>(null);
   const [pin, setPin] = useState("");
   const [savingPin, setSavingPin] = useState(false);
@@ -982,7 +994,8 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
         api<{ guests: Guest[] }>("/api/admin/guests"),
         api<{ pinSet: boolean }>("/api/admin/checkin-pin"),
       ]);
-      setGuests(guestData.guests);
+      setGroupNames(new Map(guestData.guests.filter(isGroupInvite).map((g) => [g.id, g.name])));
+      setGuests(guestData.guests.filter((g) => !isGroupInvite(g)));
       setPinSet(pinData.pinSet);
     } catch (err) {
       handleError(err);
@@ -1066,7 +1079,7 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
     const rows = [
       ["Nama", "Asal", "Check-in"],
-      ...visible.map((g) => [g.name, SOURCE_LABELS[g.source ?? "admin"], g.checkedInAt ? formatDate(g.checkedInAt) : "-"]),
+      ...visible.map((g) => [g.name, sourceLabel(g, groupNames), g.checkedInAt ? formatDate(g.checkedInAt) : "-"]),
     ];
     const blob = new Blob(["\ufeff" + rows.map((row) => row.map(escape).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
@@ -1083,7 +1096,7 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       <div className="grid grid-cols-4 gap-4">
         <StatCard label="Total Tamu" value={guests.length} loading={!loaded} />
         <StatCard label="Sudah Check-in" value={checkedIn} loading={!loaded} tone="text-[#1f8f4e]" />
-        <StatCard label="Dari Link Grup" value={guests.filter((g) => g.source === "self").length} loading={!loaded} tone="text-[#3d5a80]" />
+        <StatCard label="Dari Link Grup/Umum" value={guests.filter((g) => g.source === "self").length} loading={!loaded} tone="text-[#3d5a80]" />
         <StatCard label="Ditambah di Lokasi" value={guests.filter((g) => g.source === "desk").length} loading={!loaded} tone="text-[#a06a12]" />
       </div>
 
@@ -1151,7 +1164,7 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                 {pagination.pageItems.map((guest) => (
                   <tr key={guest.id}>
                     <td className="px-4 py-3 font-medium">{guest.name}</td>
-                    <td className="px-4 py-3 text-[#3d463f]">{SOURCE_LABELS[guest.source ?? "admin"]}</td>
+                    <td className="px-4 py-3 text-[#3d463f]">{sourceLabel(guest, groupNames)}</td>
                     <td className="px-4 py-3">
                       {guest.checkedInAt ? (
                         <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 text-xs font-medium text-[#1f6b3a]">{formatDate(guest.checkedInAt)}</span>

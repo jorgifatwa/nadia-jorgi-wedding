@@ -12,6 +12,8 @@ interface DeskGuest {
   name: string;
   source: Source;
   checkedInAt: string | null;
+  // Group invitation a "self" guest came from
+  group: string | null;
 }
 
 interface Result {
@@ -44,7 +46,8 @@ const guestIdFromQr = (text: string) => {
   return /^[0-9a-f-]{36}$/i.test(text.trim()) ? text.trim() : null;
 };
 
-const SOURCE_LABEL: Record<Source, string | null> = { admin: null, self: "Link grup", desk: "Ditambah di lokasi" };
+const sourceLabel = (guest: DeskGuest) =>
+  guest.source === "self" ? (guest.group ? `Grup: ${guest.group}` : "Link umum") : guest.source === "desk" ? "Ditambah di lokasi" : null;
 
 const Spinner: React.FC<{ className?: string }> = ({ className = "h-4 w-4" }) => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={`animate-spin ${className}`}>
@@ -404,7 +407,7 @@ const Desk: React.FC<{ onLoggedOut: () => void }> = ({ onLoggedOut }) => {
                 <li key={guest.id} className="flex items-center gap-3 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{guest.name}</p>
-                    {SOURCE_LABEL[guest.source] && <p className="text-xs text-[#8a8374]">{SOURCE_LABEL[guest.source]}</p>}
+                    {sourceLabel(guest) && <p className="text-xs text-[#8a8374]">{sourceLabel(guest)}</p>}
                   </div>
                   {guest.checkedInAt ? (
                     <span className="shrink-0 rounded-full bg-[#e6f4ea] px-2.5 py-1 text-xs font-medium text-[#1f6b3a]">

@@ -7,8 +7,12 @@ import type { Attendance } from "./wishValidation";
 // Invitation guest list (with the QR check-in at the venue) and the WhatsApp message settings. Postgres tables `guests` (insertion order) and `settings`
 // (JSON value under the "invite" key); locally without a database: data/guests.json and data/settings.json.
 
-// Where a guest entry came from: added in the admin, took a check-in QR from a group link, or added at the desk
+// Where a guest entry came from: added in the admin, took a check-in QR from a group / general link, or added at the
+// desk. An admin entry without a WhatsApp number is a group invitation (its link is shared in a WhatsApp group), not
+// a person: each member who opens it takes a QR under their own name.
 export type GuestSource = "admin" | "self" | "desk";
+
+export const isGroupInvite = (guest: Pick<Guest, "phone" | "source">) => (guest.source ?? "admin") === "admin" && !guest.phone;
 
 export interface Guest {
   id: string;
@@ -22,6 +26,8 @@ export interface Guest {
   // Missing on entries saved before the check-in existed (= "admin")
   source?: GuestSource;
   checkedInAt?: string | null;
+  // "self" guests: the group invitation they came from (none for the general link)
+  groupId?: string | null;
 }
 
 export interface InviteSettings {
@@ -67,6 +73,7 @@ interface GuestRow {
   responded_at: Date | null;
   source: GuestSource;
   checked_in_at: Date | null;
+  group_id: string | null;
 }
 
 const fromRow = (row: GuestRow): Guest => ({
@@ -79,6 +86,7 @@ const fromRow = (row: GuestRow): Guest => ({
   respondedAt: toIso(row.responded_at),
   source: row.source,
   checkedInAt: toIso(row.checked_in_at),
+  groupId: row.group_id,
 });
 
 export const listGuests = async (): Promise<Guest[]> => {
@@ -96,9 +104,21 @@ export const getGuest = async (id: string): Promise<Guest | null> => {
   return (await readJson<Guest[]>(GUESTS, [])).find((guest) => guest.id === id) ?? null;
 };
 
+// A person already on the list under exactly this name (ignoring case and spacing); group invitations don't count
+export const findPersonByName = async (name: string): Promise<Guest | null> => {
+  const key = name.replace(/\s+/g, " ").trim().toLowerCase();
+  const sql = await getDb();
+  if (sql) {
+    const rows = await sql<GuestRow[]>`select * from guests where lower(regexp_replace(trim(name), '[[:space:]]+', ' ', 'g')) = ${key}`;
+    return rows.map(fromRow).find((guest) => !isGroupInvite(guest)) ?? null;
+  }
+  const guests = await readJson<Guest[]>(GUESTS, []);
+  return guests.find((guest) => !isGroupInvite(guest) && guest.name.replace(/\s+/g, " ").trim().toLowerCase() === key) ?? null;
+};
+
 export const addGuests = async (
   entries: { name: string; phone: string | null }[],
-  { source = "admin", checkedIn = false }: { source?: GuestSource; checkedIn?: boolean } = {},
+  { source = "admin", checkedIn = false, groupId = null }: { source?: GuestSource; checkedIn?: boolean; groupId?: string | null } = {},
 ): Promise<Guest[]> => {
   const now = new Date().toISOString();
   const added: Guest[] = entries.map((entry) => ({
@@ -109,14 +129,15 @@ export const addGuests = async (
     sentAt: null,
     source,
     checkedInAt: checkedIn ? now : null,
+    groupId,
   }));
   const sql = await getDb();
   if (sql) {
     if (added.length === 0) return [];
     // One multi-row insert; the identity column keeps the list order
-    const values = added.map(({ id, name, phone, checkedInAt }) => ({ id, name, phone, source, checked_in_at: checkedInAt }));
+    const values = added.map(({ id, name, phone, checkedInAt }) => ({ id, name, phone, source, checked_in_at: checkedInAt, group_id: groupId }));
     const rows = await sql<GuestRow[]>`
-      insert into guests ${sql(values, "id", "name", "phone", "source", "checked_in_at")}
+      insert into guests ${sql(values, "id", "name", "phone", "source", "checked_in_at", "group_id")}
       returning *
     `;
     return rows.map(fromRow);
