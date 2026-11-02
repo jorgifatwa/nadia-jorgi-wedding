@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Undangan Pernikahan Nadia & Jorgi
 
-## Getting Started
+Undangan digital (Next.js 16) dengan halaman admin untuk mengelola ucapan tamu dan mengirim undangan lewat WhatsApp.
 
-First, run the development server:
+- `/` — halaman amplop, lalu undangan lengkap setelah amplop dibuka (link personal: `/?to=Nama Tamu`)
+- `/details` — undangan lengkap tanpa amplop
+- `/admin` — kelola ucapan & kirim undangan WhatsApp (desktop, butuh password)
+
+## Menjalankan di lokal
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.example .env.local   # lalu isi ADMIN_PASSWORD dan ADMIN_SESSION_SECRET
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tanpa variabel Redis, data (ucapan, tamu, template WhatsApp) disimpan sebagai file JSON di folder `data/` (tidak ikut ke git).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy ke Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Import repository** di [vercel.com/new](https://vercel.com/new). Framework terdeteksi otomatis sebagai Next.js dan package manager pnpm; tidak ada pengaturan build yang perlu diubah.
+2. **Hubungkan database**: di project Vercel buka **Storage → Create Database → Upstash (Redis)**, pilih paket gratis, lalu hubungkan ke project. Vercel otomatis menambahkan `KV_REST_API_URL` dan `KV_REST_API_TOKEN`.
+   Tanpa langkah ini, ucapan dan data admin **tidak bisa disimpan** di Vercel.
+3. **Environment variables** (Settings → Environment Variables):
+   - `ADMIN_PASSWORD` — password halaman `/admin`
+   - `ADMIN_SESSION_SECRET` — teks acak panjang, misalnya hasil `openssl rand -hex 32`
+   - `NEXT_PUBLIC_SITE_URL` — opsional, hanya jika memakai domain sendiri (mis. `https://nadia-jorgi.com`)
+4. **Deploy ulang** (Deployments → Redeploy) setelah menambah database/variabel supaya ikut terbaca.
 
-## Learn More
+Setelah online:
 
-To learn more about Next.js, take a look at the following resources:
+- Cek pratinjau link WhatsApp/Instagram di [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) (tombol *Scrape Again* juga menyegarkan cache pratinjau).
+- Di `/admin` → Kirim Undangan, isi **Alamat website undangan** dengan domain final agar link di pesan WhatsApp benar.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Struktur singkat
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Lokasi | Isi |
+| --- | --- |
+| `src/components/` | Section undangan (layout mengikuti kanvas 440px, lihat `canvasLayout.tsx`) |
+| `src/app/api/` | API ucapan (`/api/wishes`) dan admin (`/api/admin/*`) |
+| `src/lib/` | Validasi ucapan, autentikasi admin, penyimpanan (Redis / file JSON) |
+| `public/` | Aset gambar, font, audio, animasi |
