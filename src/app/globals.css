@@ -423,3 +423,120 @@ html {
   -webkit-user-drag: none;
   user-select: none;
 }
+
+/* Envelope opening (EnvelopeLanding), on one clock from the tap: the seal pops (0-450ms), the closed flap folds up to
+   edge-on (200-650ms), the velvet-lined open flap stands up from the hinge (650-1150ms), then the card rises while the
+   envelope travels to its Section 1 place and Section 1's drapery fades in (1050-2300ms). The landing then fades out
+   over Section 1, which matches the last frame (EnvelopeLanding's SECTION_READY_AT / FADE_OUT_AT). */
+@keyframes envFadeOut {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes envShow {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes envSealPop {
+  to {
+    opacity: 0;
+    scale: 1.7;
+    rotate: 40deg;
+  }
+}
+
+@keyframes envFlapClose {
+  from {
+    transform: perspective(70cqw) rotateX(0deg);
+  }
+  to {
+    transform: perspective(70cqw) rotateX(-90deg);
+  }
+}
+
+@keyframes envFlapOpen {
+  from {
+    transform: perspective(70cqw) rotateX(90deg);
+  }
+  to {
+    transform: perspective(70cqw) rotateX(0deg);
+  }
+}
+
+@keyframes envCardRise {
+  from {
+    translate: 0 var(--card-drop);
+  }
+  to {
+    translate: 0 0;
+  }
+}
+
+@keyframes envTravel {
+  from {
+    translate: var(--travel-x) var(--travel-y);
+    scale: var(--travel-sx) var(--travel-sy);
+  }
+  to {
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+.env-opening .env-fade {
+  animation: envFadeOut 0.4s ease both;
+}
+
+.env-opening .env-seal {
+  animation: envSealPop 0.45s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+.env-opening .env-bouquet {
+  animation: envFadeOut 0.6s ease 0.25s both;
+}
+
+.env-opening .env-flap {
+  transform-origin: 50% 1.9%;
+  animation: envFlapClose 0.45s cubic-bezier(0.55, 0, 1, 0.45) 0.2s both;
+}
+
+.env-opening .env-closed-rest {
+  animation: envFadeOut 0.3s ease 0.6s both;
+}
+
+.env-opening .env-open-scene {
+  animation:
+    envShow 0.12s linear 0.2s both,
+    envTravel 1.25s cubic-bezier(0.65, 0, 0.35, 1) 1.05s both;
+}
+
+.env-opening .env-open-flap {
+  transform-origin: 50% 100%;
+  animation: envFlapOpen 0.5s cubic-bezier(0, 0.55, 0.45, 1) 0.65s both;
+}
+
+.env-opening .env-card {
+  animation: envCardRise 1.2s cubic-bezier(0.3, 0.6, 0.2, 1) 1.05s both;
+}
+
+.env-opening .env-section-bg {
+  animation: envShow 1.2s ease 1.1s both;
+}
+
+.env-done {
+  animation: envFadeOut 0.35s ease both;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .env-opening .env-open-scene,
+  .env-opening .env-section-bg {
+    display: none;
+  }
+}

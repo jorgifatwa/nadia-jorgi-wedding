@@ -3,9 +3,11 @@
 import React, { useRef } from "react";
 import { useWeddingAudio } from "./WeddingAudio";
 import { CANVAS_W, ClippedImage, MEDIA, u, type Box } from "./canvasLayout";
+import { EnvelopeBack, EnvelopeFront, EnvelopeLining, LaceCard, Verse } from "./introEnvelope";
 
 interface InvitationDetailsProps {
-  onBack?: () => void;
+  // Set when the envelope-opening transition already drew the envelope and card in place
+  introPlayed?: boolean;
 }
 
 // Section 1 occupies 440 x 903.8 on the reference canvas (Section 2 starts at y = 903.8)
@@ -31,22 +33,7 @@ const PlayerIcon: React.FC<{ box: Box; viewBox: string; d: string; fill?: string
   </svg>
 );
 
-const verseTextStyle: React.CSSProperties = {
-  position: "absolute",
-  left: u(123.9),
-  width: u(192.2),
-  margin: 0,
-  fontFamily: "'VerseSerifLocal', 'Noto Serif', 'Droid Serif', serif",
-  fontSize: u(10.526),
-  lineHeight: u(14.488),
-  fontWeight: 400,
-  color: "#2d110e",
-  textAlign: "center",
-  whiteSpace: "pre-line",
-  pointerEvents: "none",
-};
-
-export const InvitationDetails: React.FC<InvitationDetailsProps> = () => {
+export const InvitationDetails: React.FC<InvitationDetailsProps> = ({ introPlayed = false }) => {
   const { isPlaying, toggleAudio, currentTime, duration, seekAudio } = useWeddingAudio();
   const progressBarRef = useRef<HTMLDivElement | null>(null);
 
@@ -115,40 +102,12 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = () => {
         reveal="sway"
       />
 
-      {/* 3. Envelope back */}
-      <ClippedImage
-        src={`${MEDIA}/1e7bcbf0e72a46a3fc5a00d154822f44.png`}
-        alt="Envelope Back"
-        img={[68.3, 402.3, 301.3, 320.6]}
-        reveal="rise"
-      />
-
-      {/* 4. Burgundy velvet lining */}
-      <ClippedImage
-        src={`${MEDIA}/fd53e8793519ee86df4fd95a8217d781.png`}
-        alt="Burgundy Velvet Lining"
-        img={[72.2, 281.7, 293.6, 522.5]}
-        clip={[72.2, 421.7, 293.5, 242.5]}
-        reveal="rise"
-        clipPath="polygon(49.68% 0%, 51.01% 0.11%, 52.25% 0.84%, 73% 19.99%, 88.5% 35.08%, 100% 47.16%, 99.91% 47.27%, 99.95% 99.72%, 99.77% 100%, 0.23% 100%, 0.09% 99.89%, 0% 99.67%, 0.05% 47.22%, 6.21% 41.04%, 20.01% 27.84%, 31.74% 16.37%, 46.23% 2.78%, 47.88% 1%, 48.99% 0.22%)"
-      />
-
-      {/* 5. Envelope front pocket */}
-      <ClippedImage
-        src={`${MEDIA}/4eb403d7039697c0864925cfaaa203ee.png`}
-        alt="Envelope Front Pocket"
-        img={[32.6, 366.8, 375.5, 469.4]}
-        clip={[67.7, 532.2, 308.6, 190.7]}
-        reveal="rise"
-      />
-
-      {/* 6. Oval lace doily card */}
-      <ClippedImage
-        src={`${MEDIA}/ca52e90c3dc4ba78c450200739a6e3c8.png`}
-        alt="Lace Doily Card"
-        img={[63.3, 122.9, 304.3, 434.7]}
-        clip={[67.7, 130.1, 299.9, 427.4]}
-      />
+      {/* 3-6. Opened envelope (back, burgundy lining, front pocket) and the oval lace card; already in place when the
+             guest arrives through the envelope-opening transition */}
+      <EnvelopeBack reveal="rise" skipReveal={introPlayed} />
+      <EnvelopeLining reveal="rise" skipReveal={introPlayed} />
+      <EnvelopeFront reveal="rise" skipReveal={introPlayed} />
+      <LaceCard skipReveal={introPlayed} />
 
       {/* 7. Right cascading bouquet (bleeds off the right edge) */}
       <ClippedImage
@@ -160,10 +119,7 @@ export const InvitationDetails: React.FC<InvitationDetailsProps> = () => {
       />
 
       {/* 8. QS Ar-Rum 21 verse */}
-      <p data-reveal="blur" style={{ ...verseTextStyle, top: u(255.3) }}>
-        {`"Dan di antara tanda-tanda\n(kebesaran)-Nya ialah Dia\nmenciptakan pasangan-pasangan\nuntukmu dari jenismu sendiri, agar\nkamu cenderung dan merasa\ntenteram kepadanya, dan Dia\nmenjadikan di antaramu rasa kasih\ndan sayang. Sungguh, pada yang\ndemikian itu benar-benar terdapat\ntanda-tanda (kebesaran Allah) bagi\nkaum yang berpikir."`}
-      </p>
-      <p data-reveal="blur" style={{ ...verseTextStyle, top: u(429.3) }}>QS Ar-Rum 21</p>
+      <Verse skipReveal={introPlayed} />
 
       {/* 9. Music player */}
       <>

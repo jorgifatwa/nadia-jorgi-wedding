@@ -24,8 +24,10 @@ export const ClippedImage: React.FC<{
   // Backgrounds opt out of the scroll-reveal animation; other images reveal with a soft zoom unless `reveal` says otherwise
   skipReveal?: boolean;
   reveal?: Reveal;
-}> = ({ src, alt, img, clip = img, clipPath, objectFit, flipX, skipReveal, reveal = "zoom" }) => (
+  className?: string;
+}> = ({ src, alt, img, clip = img, clipPath, objectFit, flipX, skipReveal, reveal = "zoom", className }) => (
   <div
+    className={className}
     data-reveal={skipReveal ? undefined : reveal}
     data-reveal-skip={skipReveal ? "" : undefined}
     style={{

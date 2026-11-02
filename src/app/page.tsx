@@ -15,7 +15,9 @@ import { ContentGuard } from "@/components/ContentGuard";
 import { ClosingSection } from "@/components/ClosingSection";
 
 export default function Home() {
+  // The invitation mounts while the envelope-opening transition is still on top, then the landing is removed
   const [isOpened, setIsOpened] = useState(false);
+  const [showLanding, setShowLanding] = useState(true);
 
   return (
     <WeddingAudioProvider>
@@ -50,9 +52,7 @@ export default function Home() {
               flexDirection: "column",
             }}
           >
-            {!isOpened ? (
-              <EnvelopeLanding onOpen={() => setIsOpened(true)} />
-            ) : (
+            {isOpened && (
               <div
                 id="invitation-scroll-container"
                 style={{
@@ -68,7 +68,7 @@ export default function Home() {
                   msOverflowStyle: "none",
                 }}
               >
-                <InvitationDetails onBack={() => setIsOpened(false)} />
+                <InvitationDetails introPlayed />
                 <CoupleSection />
                 <EventSection />
                 <GiftSection />
@@ -77,6 +77,7 @@ export default function Home() {
                 <ClosingSection />
               </div>
             )}
+            {showLanding && <EnvelopeLanding onOpen={() => setIsOpened(true)} onFinished={() => setShowLanding(false)} />}
           </div>
         </main>
       </ToastProvider>
