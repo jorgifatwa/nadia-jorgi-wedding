@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+// Bundled with the page (not loaded when the camera opens), so scanning works even if the venue connection drops first
+import jsQR from "jsqr";
 
 // Reception desk on the wedding day, on the committee's phones: log in with the shared PIN, scan guests' QR codes (or
 // find them by name), add guests who are not on the list. Several phones can work at once; the list refreshes itself.
@@ -26,10 +28,18 @@ interface Result {
 const REFRESH_MS = 10_000;
 const SEARCH_LIMIT = 40;
 // The same QR held in front of the camera is read again only after this long
-const RESCAN_MS = 4000;
+const RESCAN_MS = 1000;
+// ...and the desk ignores a QR this long after it was scanned (after a warning / error: after the pop-up was closed), so a
+// guest still holding their phone up doesn't trigger a "sudah check-in" warning, nor a foreign QR pop up again at once
+const SAME_QR_IGNORE_MS = 5000;
 
 const api = async <T,>(url: string, init?: RequestInit): Promise<T> => {
-  const res = await fetch(url, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
+  let res: Response;
+  try {
+    res = await fetch(url, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
+  } catch {
+    throw new Error("Koneksi internet terputus. Periksa sinyal atau WiFi HP ini, lalu coba lagi.");
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error ?? "Terjadi kesalahan."), { status: res.status });
   return data as T;
@@ -164,7 +174,6 @@ const Scanner: React.FC<{ onCode: (text: string) => void; onStop: () => void }> 
       const video = videoRef.current!;
       video.srcObject = stream;
       await video.play().catch(() => {});
-      const { default: jsQR } = await import("jsqr");
 
       let lastScan = 0;
       const scan = (time: number) => {
@@ -207,6 +216,10 @@ const Scanner: React.FC<{ onCode: (text: string) => void; onStop: () => void }> 
           <video ref={videoRef} playsInline muted className="aspect-square w-full object-cover" />
           {/* Aiming frame */}
           <div className="pointer-events-none absolute inset-[16%] rounded-2xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+          {/* A QR that won't read (cracked screen, too dim, too far) just shows nothing: point the way out */}
+          <p className="pointer-events-none absolute inset-x-0 bottom-2 px-4 text-center text-xs leading-snug text-white/90">
+            Arahkan QR ke dalam kotak. Tidak terbaca? Naikkan kecerahan layar tamu, atau cari namanya di bawah.
+          </p>
         </>
       )}
       <button
@@ -220,28 +233,73 @@ const Scanner: React.FC<{ onCode: (text: string) => void; onStop: () => void }> 
   );
 };
 
-const ResultCard: React.FC<{ result: Result; onUndo: (guest: DeskGuest) => void; onDismiss: () => void }> = ({ result, onUndo, onDismiss }) => {
+// A successful check-in closes itself after this long, so the next guest can be scanned straight away; warnings and
+// errors stay until the committee taps them away
+const SUCCESS_CLOSE_MS = 3000;
+
+// Pop-up with the outcome of a scan / check-in, over everything; scans are ignored while it is open
+const ResultModal: React.FC<{ result: Result; onUndo: (guest: DeskGuest) => void; onClose: () => void }> = ({ result, onUndo, onClose }) => {
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKeyDown);
+    const timer = result.kind === "ok" ? setTimeout(onClose, SUCCESS_CLOSE_MS) : undefined;
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      clearTimeout(timer);
+    };
+  }, [result, onClose]);
+
   const tone = {
-    ok: "border-[#9fd4b0] bg-[#e6f4ea] text-[#1f6b3a]",
-    already: "border-[#f0d58c] bg-[#fdf6e3] text-[#7a5a12]",
-    error: "border-[#f0c9c9] bg-[#fdf1f1] text-[#9b1c1c]",
+    ok: { circle: "bg-[#1f8f4e] text-white", title: "text-[#1f6b3a]", label: "Check-in berhasil" },
+    already: { circle: "bg-[#e0a526] text-white", title: "text-[#7a5a12]", label: "Perhatian" },
+    error: { circle: "bg-[#b42318] text-white", title: "text-[#9b1c1c]", label: "Gagal" },
   }[result.kind];
   const icon = { ok: "✓", already: "!", error: "✕" }[result.kind];
+  const group = result.guest?.group;
+
   return (
-    <div role="status" className={`flex items-start gap-3 rounded-2xl border p-4 ${tone}`}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/70 text-lg font-bold">{icon}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-base font-semibold leading-snug">{result.title}</p>
-        {result.detail && <p className="mt-0.5 text-sm opacity-90">{result.detail}</p>}
+    <div className="admin-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-[#1f2a22]/55 px-5 backdrop-blur-[2px]" onClick={onClose}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="result-title"
+        aria-describedby="result-detail"
+        onClick={(e) => e.stopPropagation()}
+        className="admin-modal-card relative w-full max-w-sm overflow-hidden rounded-3xl bg-white px-6 pb-6 pt-8 text-center shadow-[0_24px_60px_rgba(31,42,34,0.3)]"
+      >
+        <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-3xl font-bold ${tone.circle}`} aria-hidden="true">
+          {icon}
+        </div>
+        <p className="mt-4 text-xs font-medium uppercase tracking-[0.2em] text-[#8a8374]">{tone.label}</p>
+        <h2 id="result-title" className={`mt-1 text-2xl font-semibold leading-snug [overflow-wrap:anywhere] ${tone.title}`}>
+          {result.title}
+        </h2>
+        {group && <p className="mt-1 text-sm text-[#8a8374]">Grup: {group}</p>}
+        {result.detail && (
+          <p id="result-detail" className="mt-2 text-base text-[#3d463f]">
+            {result.detail}
+          </p>
+        )}
+        <button ref={closeRef} type="button" onClick={onClose} className="mt-6 w-full rounded-xl bg-[#24412f] py-3 text-base font-semibold text-white">
+          {result.kind === "ok" ? "Scan berikutnya" : "OK"}
+        </button>
         {result.kind === "ok" && result.guest && (
-          <button type="button" onClick={() => onUndo(result.guest!)} className="mt-2 text-xs font-medium underline underline-offset-2">
+          <button type="button" onClick={() => onUndo(result.guest!)} className="mt-3 text-sm font-medium text-[#9b1c1c] underline underline-offset-2">
             Salah tamu? Batalkan check-in
           </button>
         )}
+        {/* Time left before the success pop-up closes itself */}
+        {result.kind === "ok" && (
+          <div
+            className="checkin-result-timer absolute inset-x-0 bottom-0 h-1 origin-left bg-[#1f8f4e]"
+            style={{ animationDuration: `${SUCCESS_CLOSE_MS}ms` }}
+            aria-hidden="true"
+          />
+        )}
       </div>
-      <button type="button" onClick={onDismiss} aria-label="Tutup" className="px-1 opacity-60">
-        ✕
-      </button>
     </div>
   );
 };
@@ -251,6 +309,21 @@ const Desk: React.FC<{ onLoggedOut: () => void }> = ({ onLoggedOut }) => {
   const [loaded, setLoaded] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  // Scans arriving while the result pop-up is open are ignored (the camera keeps seeing the same QR)
+  const resultOpen = useRef(false);
+  useEffect(() => {
+    resultOpen.current = result !== null;
+  }, [result]);
+  const lastScan = useRef({ id: "", at: 0 });
+  const shownResult = useRef<Result | null>(null);
+  useEffect(() => {
+    shownResult.current = result;
+  }, [result]);
+  const closeResult = useCallback(() => {
+    // The QR behind a warning / error is likely still in front of the camera: give the committee time to move it
+    if (shownResult.current && shownResult.current.kind !== "ok") lastScan.current.at = Date.now();
+    setResult(null);
+  }, []);
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -308,9 +381,15 @@ const Desk: React.FC<{ onLoggedOut: () => void }> = ({ onLoggedOut }) => {
   };
 
   const onCode = useCallback((text: string) => {
+    if (resultOpen.current) return;
     const id = guestIdFromQr(text);
+    const key = id ?? text;
+    const now = Date.now();
+    if (key === lastScan.current.id && now - lastScan.current.at < SAME_QR_IGNORE_MS) return;
+    lastScan.current = { id: key, at: now };
+    resultOpen.current = true;
     if (id) checkIn({ id });
-    else setResult({ kind: "error", title: "Bukan QR undangan ini", detail: "Cari nama tamu secara manual di bawah." });
+    else setResult({ kind: "error", title: "Bukan QR undangan ini", detail: "Minta tamu membuka QR Check-in di undangannya, atau cari namanya di bawah." });
     // checkIn only uses state setters and stable callbacks
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -387,7 +466,7 @@ const Desk: React.FC<{ onLoggedOut: () => void }> = ({ onLoggedOut }) => {
           </button>
         )}
 
-        {result && <ResultCard result={result} onUndo={undo} onDismiss={() => setResult(null)} />}
+        {result && <ResultModal result={result} onUndo={undo} onClose={closeResult} />}
 
         <div className="rounded-2xl border border-[#e5dfd3] bg-white p-4">
           <label htmlFor="desk-search" className="text-sm font-semibold">

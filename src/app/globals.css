@@ -909,3 +909,17 @@ html {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* Reception desk: bar running down while a successful check-in pop-up closes itself */
+.checkin-result-timer {
+  animation: checkinResultTimer linear forwards;
+}
+
+@keyframes checkinResultTimer {
+  from {
+    scale: 1 1;
+  }
+  to {
+    scale: 0 1;
+  }
+}
