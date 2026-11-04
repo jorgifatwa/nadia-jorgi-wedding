@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { useWeddingAudio } from "./WeddingAudio";
 import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
-import { SAKURA_COLORS, SakuraPetal } from "./Sakura";
 import {
   CLOSED_FLAP_CLIP,
   CLOSED_REST_CLIP,
@@ -59,18 +58,28 @@ const travelFrom = {
 
 const SECTION1_H = 903.8;
 
-// The wax seal and the five petals it breaks into: thrown out around it (canvas units), each turning as it goes
-const SEAL_CENTER: [x: number, y: number] = [220, 427.9];
-const SEAL_PETALS = Array.from({ length: 5 }, (_, i) => {
-  const angle = ((-90 + i * 72 + 12) * Math.PI) / 180;
-  const distance = 46 + (i % 2) * 14;
-  return {
-    dx: +(Math.cos(angle) * distance).toFixed(1),
-    dy: +(Math.sin(angle) * distance).toFixed(1),
-    r0: -90 + i * 72 + 12 + 90,
-    spin: i % 2 ? 160 : -140,
-  };
-});
+// The wax seal (canvas units, drawn turned -176deg and slowly spinning) and how it cracks: three jagged cracks run out
+// from a point near its middle, splitting it into three shards (percentages of the seal box)
+const SEAL_BOX = { x: 220 - 47.49 / 2, y: 427.9 - 49.99 / 2, w: 47.49, h: 49.99 };
+const SEAL_TURN = -176;
+// Cracks stop at the wax's round edge; the shard outlines continue them to the corners of the (transparent) box
+const SEAL_CRACKS = ["52,47 55,30 48,15 50,7", "52,47 38,58 30,72 15,81", "52,47 68,52 80,44 93,48"];
+const SEAL_SHARDS = [
+  { clip: "0 0, 51% 0, 48% 15%, 55% 30%, 52% 47%, 38% 58%, 30% 72%, 0 85%", center: [26, 34], spin: -38 },
+  { clip: "51% 0, 100% 0, 100% 50%, 80% 44%, 68% 52%, 52% 47%, 55% 30%, 48% 15%", center: [76, 24], spin: 44 },
+  { clip: "0 85%, 30% 72%, 38% 58%, 52% 47%, 68% 52%, 80% 44%, 100% 50%, 100% 100%, 0 100%", center: [52, 80], spin: -24 },
+];
+
+const sealImage = (className?: string) => (
+  // eslint-disable-next-line @next/next/no-img-element
+  <img
+    src={`${MEDIA}/85044a4ee6708cc8da02bc4bad5f12f9.webp`}
+    alt=""
+    draggable={false}
+    className={className}
+    style={{ width: "100%", height: "100%", display: "block" }}
+  />
+);
 
 // Transition timeline in ms; the per-piece choreography lives in globals.css (.env-opening rules) on the same clock
 const PETAL_BURST_AT = 1700;
@@ -165,6 +174,8 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
 
   // Petals spill out of the envelope while the card rises: from wherever its opening is on screen at that moment
   const mouthRef = useRef<HTMLDivElement | null>(null);
+  const sealSpinRef = useRef<HTMLDivElement | null>(null);
+  const sealPiecesRef = useRef<HTMLDivElement | null>(null);
   const burstPetals = () => {
     const mouth = mouthRef.current?.getBoundingClientRect();
     if (mouth) onPetalBurst?.(mouth.left + mouth.width / 2, mouth.top);
@@ -180,6 +191,27 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
       return;
     }
     if (stage !== "closed") return;
+
+    // Freeze the seal where its spin is and draw the shards / cracks at that angle, each shard thrown away from the
+    // middle in screen terms
+    const spin = sealSpinRef.current && getComputedStyle(sealSpinRef.current).transform;
+    const spinAngle = spin && spin !== "none" ? (Math.atan2(new DOMMatrix(spin).b, new DOMMatrix(spin).a) * 180) / Math.PI : 0;
+    const angle = SEAL_TURN + spinAngle;
+    const pieces = sealPiecesRef.current;
+    if (pieces) {
+      pieces.style.setProperty("--seal-angle", `${angle}deg`);
+      const rad = (angle * Math.PI) / 180;
+      pieces.querySelectorAll<HTMLElement>(".env-seal-shard").forEach((el, i) => {
+        const [cx, cy] = SEAL_SHARDS[i].center;
+        const lx = cx - 50;
+        const ly = cy - 50;
+        const len = Math.hypot(lx, ly) || 1;
+        const dx = (lx * Math.cos(rad) - ly * Math.sin(rad)) / len;
+        const dy = (lx * Math.sin(rad) + ly * Math.cos(rad)) / len;
+        el.style.setProperty("--dx", u(dx * 26));
+        el.style.setProperty("--dy", u(dy * 18));
+      });
+    }
 
     setStage("opening");
     openedAt.current = Date.now();
@@ -380,46 +412,65 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
         </div>
         <div
           className="env-seal"
+          role="img"
+          aria-label="Wax Seal"
           style={{
             position: "absolute",
-            left: u(220 - 47.49 / 2),
-            top: u(427.9 - 49.99 / 2),
-            width: u(47.49),
-            height: u(49.99),
-            transform: "rotate(-176deg)",
+            left: u(SEAL_BOX.x),
+            top: u(SEAL_BOX.y),
+            width: u(SEAL_BOX.w),
+            height: u(SEAL_BOX.h),
+            transform: `rotate(${SEAL_TURN}deg)`,
             pointerEvents: "none",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`${MEDIA}/85044a4ee6708cc8da02bc4bad5f12f9.webp`}
-            alt="Wax Seal"
-            draggable={false}
-            className="animate-spin-seal"
-            style={{ width: "100%", height: "100%", display: "block" }}
-          />
-        </div>
-        {/* The seal breaks into sakura petals (styled by .env-seal-petal) */}
-        {SEAL_PETALS.map((petal, i) => (
-          <div
-            key={i}
-            className="env-seal-petal"
-            style={
-              {
-                left: u(SEAL_CENTER[0] - 7),
-                top: u(SEAL_CENTER[1] - 8.4),
-                width: u(14),
-                height: u(16.8),
-                "--dx": u(petal.dx),
-                "--dy": u(petal.dy),
-                "--r0": `${petal.r0}deg`,
-                "--spin": `${petal.spin}deg`,
-              } as React.CSSProperties
-            }
-          >
-            <SakuraPetal color={SAKURA_COLORS[i % SAKURA_COLORS.length]} />
+          <div ref={sealSpinRef} className="animate-spin-seal" style={{ width: "100%", height: "100%" }}>
+            {sealImage()}
           </div>
-        ))}
+        </div>
+        {/* The seal cracking: cracks run across it, then it falls apart in three shards (.env-seal-crack rules). The
+            pieces are drawn at the angle the spinning seal had when the envelope was tapped (--seal-angle). */}
+        <div ref={sealPiecesRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          {SEAL_SHARDS.map((shard, i) => (
+            <div
+              key={i}
+              className="env-seal-shard"
+              style={
+                {
+                  position: "absolute",
+                  left: u(SEAL_BOX.x),
+                  top: u(SEAL_BOX.y),
+                  width: u(SEAL_BOX.w),
+                  height: u(SEAL_BOX.h),
+                  transform: "rotate(var(--seal-angle, 0deg))",
+                  clipPath: `polygon(${shard.clip})`,
+                  "--spin": `${shard.spin}deg`,
+                } as React.CSSProperties
+              }
+            >
+              {sealImage()}
+            </div>
+          ))}
+          <svg
+            className="env-seal-crack"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              left: u(SEAL_BOX.x),
+              top: u(SEAL_BOX.y),
+              width: u(SEAL_BOX.w),
+              height: u(SEAL_BOX.h),
+              overflow: "visible",
+              transform: "rotate(var(--seal-angle, 0deg))",
+            }}
+          >
+            {SEAL_CRACKS.map((points) => (
+              <polyline key={points} points={points} pathLength={1} fill="none" stroke="#1e0606" strokeWidth={2.6} strokeLinejoin="round" />
+            ))}
+          </svg>
+        </div>
         <ClippedImage src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`} alt="Envelope Florals" img={[13.65, 267.44, 197.2, 246.5]} className="env-bouquet" />
         <ClippedImage
           src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}

@@ -588,8 +588,8 @@ html {
   user-select: none;
 }
 
-/* Envelope opening (EnvelopeLanding), on one clock from the tap: the seal pops (0-450ms), the closed flap folds up to
-   edge-on (200-650ms), the velvet-lined open flap stands up from the hinge (650-1150ms), then the card rises while the
+/* Envelope opening (EnvelopeLanding), on one clock from the tap: the seal cracks and falls apart (0-1000ms, see
+   below), the closed flap folds up to edge-on (200-650ms), the velvet-lined open flap stands up from the hinge (650-1150ms), then the card rises while the
    envelope travels to its Section 1 place and Section 1's drapery fades in (1050-2300ms). The landing then fades out
    over Section 1, which matches the last frame (EnvelopeLanding's SECTION_READY_AT / FADE_OUT_AT). */
 @keyframes envFadeOut {
@@ -604,14 +604,6 @@ html {
   }
   to {
     opacity: 1;
-  }
-}
-
-@keyframes envSealPop {
-  to {
-    opacity: 0;
-    scale: 1.7;
-    rotate: 40deg;
   }
 }
 
@@ -655,10 +647,6 @@ html {
 
 .env-opening .env-fade {
   animation: envFadeOut 0.4s ease both;
-}
-
-.env-opening .env-seal {
-  animation: envSealPop 0.45s cubic-bezier(0.5, 0, 0.75, 0) both;
 }
 
 .env-opening .env-bouquet {
@@ -1037,43 +1025,104 @@ html {
   }
 }
 
-/* Envelope opening: the wax seal breaks into petals that fly out and drift down */
-.env-seal-petal {
-  position: absolute;
+/* Envelope opening: the wax seal cracks (0-220ms: cracks run across it while it trembles) and falls apart in three
+   shards (220-1000ms: thrown apart, tumbling down and fading). The shards and cracks are hidden until then. */
+.env-seal-shard,
+.env-seal-crack {
   opacity: 0;
-  pointer-events: none;
 }
 
-.env-opening .env-seal-petal {
-  animation: envSealPetal 1.5s cubic-bezier(0.15, 0.7, 0.35, 1) 0.08s both;
+.env-opening .animate-spin-seal {
+  animation-play-state: paused;
 }
 
-@keyframes envSealPetal {
-  0% {
+.env-opening .env-seal {
+  animation: envSealTremble 0.22s linear both;
+}
+
+.env-opening .env-seal-crack {
+  animation: envSealCrackShow 0.24s linear both;
+}
+
+.env-opening .env-seal-crack polyline {
+  stroke-dasharray: 1;
+  animation: envSealCrackRun 0.2s cubic-bezier(0.3, 0, 0.6, 1) both;
+}
+
+.env-opening .env-seal-shard {
+  animation: envSealShard 1s cubic-bezier(0.3, 0, 0.7, 0.6) both;
+}
+
+@keyframes envSealTremble {
+  0%,
+  100% {
     translate: 0 0;
-    rotate: var(--r0);
-    scale: 0.3;
+  }
+  20% {
+    translate: -1.2px 0.6px;
+  }
+  40% {
+    translate: 1.2px -0.6px;
+  }
+  60% {
+    translate: -0.8px -0.8px;
+  }
+  80% {
+    translate: 0.8px 0.8px;
+  }
+  99% {
+    opacity: 1;
+  }
+  100% {
     opacity: 0;
   }
-  12% {
+}
+
+@keyframes envSealCrackShow {
+  0%,
+  99% {
     opacity: 1;
-    scale: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes envSealCrackRun {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes envSealShard {
+  0%,
+  21% {
+    opacity: 0;
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  22% {
+    opacity: 1;
   }
   45% {
     translate: var(--dx) var(--dy);
   }
-  80% {
+  75% {
     opacity: 1;
   }
   100% {
-    translate: calc(var(--dx) * 1.15) calc(var(--dy) + 9cqw);
-    rotate: calc(var(--r0) + var(--spin));
     opacity: 0;
+    translate: calc(var(--dx) * 1.4) calc(var(--dy) + 22cqw);
+    rotate: var(--spin);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .env-seal-petal,
+  .env-seal-shard,
+  .env-seal-crack,
   .sakura-burst {
     display: none;
   }
