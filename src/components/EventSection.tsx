@@ -43,11 +43,8 @@ const SCRIPT_FONT = "'SloopScript', 'Great Vibes', cursive";
 
 const textStyle = canvasText;
 
-// The fountain picture split in two: the pool (minus the spray dome above its rim) lies flat and spreads out, the spray
-// dome on top bursts up out of it last and keeps breathing (percentages of the fountain image)
-const POOL_CLIP = "polygon(0 0, 41.6% 0, 41.6% 38%, 59.8% 38%, 59.8% 0, 100% 0, 100% 100%, 0 100%)";
-const SPRAY_CLIP =
-  "polygon(46% 0, 53.5% 0, 55.6% 9%, 57.4% 20%, 58.6% 35%, 59.6% 55%, 59.6% 74%, 42% 74%, 42% 55%, 42.6% 35%, 43.6% 20%, 44.6% 9%)";
+// The venue drawing (Menara BP Jamsostek), one image per pop-up piece in canvas units
+const VENUE = "/images/venue";
 
 // Render scales of the date block texts in the reference
 const DATE_BLOCK_SCALE = 1.14795;
@@ -207,14 +204,15 @@ export const EventSection: React.FC<EventSectionProps> = ({
       </p>
       <p data-reveal="rise" style={textStyle([146.37, 463.74, 157.44], BODY_FONT, 21.43, 29.97, { bold: true, renderScale: 0.483403 })}>{year}</p>
 
-      {/* 4. Venue illustration: wings, centre building, cypress trees, fountain */}
-      <ClippedImage src={`${MEDIA}/c7b9a8e80ff07fc9427f8bce49e38276.webp`} alt="" img={[49.09, 536.34, 118.17, 123.86]} reveal="popup-left" revealDelay={800} />
-      <ClippedImage src={`${MEDIA}/6cbd981383bb0be28a2f55c68fb11767.webp`} alt="" img={[272.74, 536.34, 118.17, 123.86]} reveal="popup-right" revealDelay={800} />
-      <ClippedImage src={`${MEDIA}/6a46472959bb93e40e93e6f7e53db377.webp`} alt="Venue Illustration" img={[158.94, 552.97, 126.05, 94.09]} reveal="popup-up" revealDelay={350} />
-      <ClippedImage src={`${MEDIA}/061bb6589fe36bb9f07745260df53b3a.webp`} alt="" img={[155, 573.1, 28, 77.03]} reveal="popup-up" revealDelay={1500} />
-      <ClippedImage src={`${MEDIA}/edb61eab0272fcfcb100ac74f196fa4b.webp`} alt="" img={[256.98, 573.1, 31.94, 77.03]} reveal="popup-up" revealDelay={1650} />
-      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.webp`} alt="" img={[96.36, 643.13, 247.28, 33.69]} clipPath={POOL_CLIP} reveal="popup-pool" />
-      <ClippedImage src={`${MEDIA}/9b31ae35c64b69e67e6e85f829c495b7.webp`} alt="" img={[96.36, 643.13, 247.28, 33.69]} clipPath={SPRAY_CLIP} reveal="popup-spray" revealDelay={2500} />
+      {/* 4. Venue illustration: Menara BP Jamsostek in front of the city, on its street, drawn as a pop-up book: the street
+             spreads out first, the tower (with its podiums) stands up, the skyline opens out to the sides, then the trees
+             and street lamps. Each piece's box bottom is its ground line (the pop-up hinge). */}
+      <ClippedImage src={`${VENUE}/street.webp`} alt="" img={[40, 648, 360, 33]} reveal="popup-ground" />
+      <ClippedImage src={`${VENUE}/skyline-left.webp`} alt="" img={[47, 552, 121, 104]} reveal="popup-left" revealDelay={800} />
+      <ClippedImage src={`${VENUE}/skyline-right.webp`} alt="" img={[273, 550, 108, 105]} reveal="popup-right" revealDelay={800} />
+      <ClippedImage src={`${VENUE}/tower.webp`} alt="Venue Illustration" img={[143, 491, 195, 163]} reveal="popup-up" revealDelay={350} />
+      <ClippedImage src={`${VENUE}/tree-left.webp`} alt="" img={[107, 613, 68, 47]} reveal="popup-up" revealDelay={1500} />
+      <ClippedImage src={`${VENUE}/tree-right.webp`} alt="" img={[261, 613, 90, 47]} reveal="popup-up" revealDelay={1650} />
 
       {/* 5. Akad details */}
       <p data-reveal="blur" style={textStyle([69.69, 741.57, 300.63], SCRIPT_FONT, 51.556, 72.15)}>Akad</p>

@@ -28,8 +28,7 @@ export type Reveal =
   | "popup-up"
   | "popup-left"
   | "popup-right"
-  | "popup-pool"
-  | "popup-spray";
+  | "popup-ground";
 
 // Scroll parallax of foreground flowers (ParallaxObserver): hanging ones only ever drift up (their cut top edge stays
 // out of sight above the section), floor ones only down
