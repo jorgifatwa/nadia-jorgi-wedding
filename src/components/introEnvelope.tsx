@@ -9,6 +9,28 @@ export const ENVELOPE_HINGE_Y = 531;
 export const ENVELOPE_BOTTOM_Y = 722;
 export const ENVELOPE_BODY: Box = [68.3, ENVELOPE_HINGE_Y, 301.3, ENVELOPE_BOTTOM_Y - ENVELOPE_HINGE_Y];
 
+// On short screens (e.g. in WhatsApp's in-app browser) Section 1 is drawn smaller, centred, so the whole opened
+// envelope with some room below it fits on the first screen: the canvas width is capped so that y = FIT_BOTTOM lands
+// at the smallest viewport height (svh: browser toolbars shown). Its drapery keeps filling the screen width.
+const SECTION1_FIT_BOTTOM = 750;
+const SECTION1_MIN_FIT = 0.8;
+export const SECTION1_FIT_WIDTH = `clamp(${SECTION1_MIN_FIT * 100}%, ${((440 / SECTION1_FIT_BOTTOM) * 100).toFixed(4)}svh, 100%)`;
+
+// Section 1's drapery image box; drawn unclipped sideways, so it still fills the screen beside a narrowed canvas
+export const SECTION1_DRAPERY: Box = [-164.6, -100.4, 715.1, 1074.4];
+
+// The same scale as a number, for a container `width` px wide (the envelope-opening transition ends at it)
+export const section1Fit = (width: number) => {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none";
+  document.body.appendChild(probe);
+  const svh = probe.getBoundingClientRect().height;
+  probe.remove();
+  // Without svh support the CSS width falls back to full width too
+  if (!svh || !width) return 1;
+  return Math.min(1, Math.max(SECTION1_MIN_FIT, (svh * 440) / SECTION1_FIT_BOTTOM / width));
+};
+
 // Closed envelope (back view, flap down). Its flap is a triangle down to the lace tip at 68% of the image height, cut
 // out of the same image so it can fold on its own; the paper sits inside 2% / 1.9% transparent margins.
 export const CLOSED_ENVELOPE_SRC = `${MEDIA}/7b6f2605f13843668eef811673008950.webp`;

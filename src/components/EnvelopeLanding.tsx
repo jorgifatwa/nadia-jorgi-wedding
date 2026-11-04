@@ -15,9 +15,11 @@ import {
   EnvelopeFront,
   EnvelopeLining,
   LaceCard,
+  SECTION1_DRAPERY,
   Slice,
   Verse,
   closedPaper,
+  section1Fit,
 } from "./introEnvelope";
 
 interface EnvelopeLandingProps {
@@ -47,11 +49,14 @@ const CLOSED_PAPER = { x: paperX, y: paperY, w: paperW, h: paperH };
 // envelope) and travels to its Section 1 place. The landing canvas is centred, so its top is 50cqh - half its height.
 const BODY_CENTER = { x: ENVELOPE_BODY[0] + ENVELOPE_BODY[2] / 2, y: ENVELOPE_BODY[1] + ENVELOPE_BODY[3] / 2 };
 const PAPER_CENTER = { x: CLOSED_PAPER.x + CLOSED_PAPER.w / 2, y: CLOSED_PAPER.y + CLOSED_PAPER.h / 2 };
+// On short screens Section 1 is drawn smaller (--s1-fit, scaled about its top centre, see SECTION1_FIT_WIDTH), so the
+// start is given in those scaled coordinates: the closed paper's screen position and size divided by the scale.
+const FIT = "var(--s1-fit, 1)";
 const travelFrom = {
-  "--travel-x": u(PAPER_CENTER.x - BODY_CENTER.x),
-  "--travel-y": `calc(50cqh - ${u(CANVAS_H / 2 - PAPER_CENTER.y + BODY_CENTER.y)})`,
-  "--travel-sx": (CLOSED_PAPER.w / ENVELOPE_BODY[2]).toFixed(4),
-  "--travel-sy": (CLOSED_PAPER.h / ENVELOPE_BODY[3]).toFixed(4),
+  "--travel-x": `calc(${u(220 - BODY_CENTER.x)} + ${u(PAPER_CENTER.x - 220)} / ${FIT})`,
+  "--travel-y": `calc((50cqh - ${u(CANVAS_H / 2 - PAPER_CENTER.y)}) / ${FIT} - ${u(BODY_CENTER.y)})`,
+  "--travel-sx": `calc(${(CLOSED_PAPER.w / ENVELOPE_BODY[2]).toFixed(4)} / ${FIT})`,
+  "--travel-sy": `calc(${(CLOSED_PAPER.h / ENVELOPE_BODY[3]).toFixed(4)} / ${FIT})`,
   // The card starts tucked inside, its top at the envelope opening
   "--card-drop": u(ENVELOPE_HINGE_Y - 130.1 + 10),
 } as React.CSSProperties;
@@ -181,7 +186,8 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
     if (mouth) onPetalBurst?.(mouth.left + mouth.width / 2, mouth.top);
   };
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const landing = e.currentTarget;
     if (stage === "opening") {
       // A second tap skips the rest of the transition (not an accidental double tap)
       if (Date.now() - openedAt.current < SKIP_AFTER) return;
@@ -212,6 +218,9 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
         el.style.setProperty("--dy", u(dy * 18));
       });
     }
+
+    // The transition ends on Section 1 as drawn on this screen
+    landing.style.setProperty("--s1-fit", section1Fit(landing.clientWidth).toFixed(4));
 
     setStage("opening");
     openedAt.current = Date.now();
@@ -358,49 +367,57 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
         />
       </div>
 
-      {/* Layer 2: Section 1's drapery, faded in while the envelope settles (only during the transition) */}
-      {stage !== "closed" && (
-        <div className="env-section-bg" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: u(SECTION1_H), overflow: "hidden" }}>
-          <ClippedImage src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.webp`} alt="" img={[-164.6, -100.4, 715.1, 1074.4]} clip={[0, 0, 440, SECTION1_H]} />
-        </div>
-      )}
-
-      {/* Layer 3: the opened envelope in Section 1 coordinates. The open flap stands up from the hinge, the card rises
-             out of the envelope (clipped at its bottom edge) and the whole envelope travels to its Section 1 place. */}
-      {stage !== "closed" && (
-        <div
-          className="env-open-scene"
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            width: "100%",
-            height: u(SECTION1_H),
-            transformOrigin: `${u(BODY_CENTER.x)} ${u(BODY_CENTER.y)}`,
-            pointerEvents: "none",
-            ...travelFrom,
-          }}
-        >
-          <Slice top={0} height={ENVELOPE_HINGE_Y} canvasHeight={SECTION1_H} className="env-open-flap">
-            <EnvelopeBack />
-            <EnvelopeLining />
-          </Slice>
-          {/* The body slice starts 1px above the hinge so no seam shows between the slices while the envelope is scaled */}
-          <Slice top={ENVELOPE_HINGE_Y - 1} height={SECTION1_H - ENVELOPE_HINGE_Y + 1} canvasHeight={SECTION1_H}>
-            <EnvelopeBack />
-            <EnvelopeLining />
-          </Slice>
-          <div style={{ position: "absolute", left: 0, top: 0, width: "100%", height: u(ENVELOPE_BOTTOM_Y), overflow: "hidden" }}>
-            <div className="env-card" style={{ position: "absolute", inset: 0 }}>
-              <LaceCard />
-              <Verse />
-            </div>
+      {/* Layers 2 and 3 are Section 1 as drawn on this screen: scaled down about its top centre on short screens */}
+      <div style={{ position: "absolute", left: 0, top: 0, width: "100%", height: u(SECTION1_H), transformOrigin: "50% 0", scale: FIT, pointerEvents: "none" }}>
+        {/* Layer 2: Section 1's drapery, faded in while the envelope settles (only during the transition) */}
+        {stage !== "closed" && (
+          <div className="env-section-bg" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: u(SECTION1_H) }}>
+            <ClippedImage
+              src={`${MEDIA}/0683d2a13e7eb7e869898743f13f38be.webp`}
+              alt=""
+              img={SECTION1_DRAPERY}
+              clip={[SECTION1_DRAPERY[0], 0, SECTION1_DRAPERY[2], SECTION1_H]}
+            />
           </div>
-          <EnvelopeFront />
-          {/* The envelope opening (centre of the hinge line), where the petal burst comes from */}
-          <div ref={mouthRef} style={{ position: "absolute", left: u(220), top: u(ENVELOPE_HINGE_Y), width: 1, height: 1 }} />
-        </div>
-      )}
+        )}
+
+        {/* Layer 3: the opened envelope in Section 1 coordinates. The open flap stands up from the hinge, the card rises
+               out of the envelope (clipped at its bottom edge) and the whole envelope travels to its Section 1 place. */}
+        {stage !== "closed" && (
+          <div
+            className="env-open-scene"
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: "100%",
+              height: u(SECTION1_H),
+              transformOrigin: `${u(BODY_CENTER.x)} ${u(BODY_CENTER.y)}`,
+              pointerEvents: "none",
+              ...travelFrom,
+            }}
+          >
+            <Slice top={0} height={ENVELOPE_HINGE_Y} canvasHeight={SECTION1_H} className="env-open-flap">
+              <EnvelopeBack />
+              <EnvelopeLining />
+            </Slice>
+            {/* The body slice starts 1px above the hinge so no seam shows between the slices while the envelope is scaled */}
+            <Slice top={ENVELOPE_HINGE_Y - 1} height={SECTION1_H - ENVELOPE_HINGE_Y + 1} canvasHeight={SECTION1_H}>
+              <EnvelopeBack />
+              <EnvelopeLining />
+            </Slice>
+            <div style={{ position: "absolute", left: 0, top: 0, width: "100%", height: u(ENVELOPE_BOTTOM_Y), overflow: "hidden" }}>
+              <div className="env-card" style={{ position: "absolute", inset: 0 }}>
+                <LaceCard />
+                <Verse />
+              </div>
+            </div>
+            <EnvelopeFront />
+            {/* The envelope opening (centre of the hinge line), where the petal burst comes from */}
+            <div ref={mouthRef} style={{ position: "absolute", left: u(220), top: u(ENVELOPE_HINGE_Y), width: 1, height: 1 }} />
+          </div>
+        )}
+      </div>
 
       {/* Layer 4: the closed envelope (body and foldable flap), its sparkles, wax seal and florals */}
       <div style={canvasStyle} className="reveal-scope">
