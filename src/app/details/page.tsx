@@ -13,6 +13,7 @@ import { RevealObserver } from "@/components/RevealObserver";
 import { ContentGuard } from "@/components/ContentGuard";
 import { ParallaxObserver } from "@/components/ParallaxObserver";
 import { ClosingSection } from "@/components/ClosingSection";
+import { SakuraLayer } from "@/components/Sakura";
 
 export default function DetailsPage() {
   return (
@@ -70,6 +71,8 @@ export default function DetailsPage() {
               <GallerySection />
               <ClosingSection />
             </div>
+            {/* Sakura petals falling over the whole invitation */}
+            <SakuraLayer raining />
           </div>
         </main>
       </ToastProvider>

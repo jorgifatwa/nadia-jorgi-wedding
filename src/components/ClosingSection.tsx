@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
+import { SAKURA_COLORS, SakuraPetal } from "./Sakura";
 
 export interface ClosingSectionProps {
   messageLines?: string[];
@@ -48,17 +49,18 @@ const NameLine: React.FC<{ text: string; center: [x: number, y: number] }> = ({ 
   </div>
 );
 
-// Petals drifting down from the two hanging bouquets: start point under a bouquet, size, fall time and start delay (s),
-// sideways sway and colour. They fall to just below the section and start over.
-const PETALS: { at: [x: number, y: number]; size: number; duration: number; delay: number; sway: number; color: string }[] = [
-  { at: [60, 250], size: 14, duration: 11, delay: 0.5, sway: 18, color: "#f6ece4" },
-  { at: [300, 260], size: 15, duration: 12, delay: 1.8, sway: 20, color: "#ead0c7" },
-  { at: [150, 270], size: 12, duration: 13, delay: 3.5, sway: -22, color: "#ead0c7" },
-  { at: [380, 240], size: 13, duration: 14, delay: 5.5, sway: -16, color: "#f6ece4" },
-  { at: [110, 230], size: 11, duration: 15, delay: 7.5, sway: 24, color: "#f6ece4" },
-  { at: [340, 280], size: 14, duration: 11.5, delay: 9, sway: -20, color: "#ead0c7" },
-  { at: [30, 290], size: 12, duration: 13.5, delay: 11, sway: 20, color: "#ead0c7" },
-  { at: [410, 270], size: 11, duration: 12.5, delay: 12.5, sway: -18, color: "#f6ece4" },
+// Sakura petals drifting down from the two hanging bouquets (on top of the petals falling over the whole invitation):
+// start point under a bouquet, size, fall time and start delay (s), sideways sway. They fall to just below the section
+// and start over.
+const PETALS: { at: [x: number, y: number]; size: number; duration: number; delay: number; sway: number }[] = [
+  { at: [60, 250], size: 14, duration: 11, delay: 0.5, sway: 18 },
+  { at: [300, 260], size: 15, duration: 12, delay: 1.8, sway: 20 },
+  { at: [150, 270], size: 12, duration: 13, delay: 3.5, sway: -22 },
+  { at: [380, 240], size: 13, duration: 14, delay: 5.5, sway: -16 },
+  { at: [110, 230], size: 11, duration: 15, delay: 7.5, sway: 24 },
+  { at: [340, 280], size: 14, duration: 11.5, delay: 9, sway: -20 },
+  { at: [30, 290], size: 12, duration: 13.5, delay: 11, sway: 20 },
+  { at: [410, 270], size: 11, duration: 12.5, delay: 12.5, sway: -18 },
 ];
 
 const FallingPetals: React.FC = () => (
@@ -72,7 +74,7 @@ const FallingPetals: React.FC = () => (
             left: u(petal.at[0]),
             top: u(petal.at[1]),
             width: u(petal.size),
-            height: u(petal.size * 1.4),
+            height: u(petal.size * 1.2),
             "--fall": u(CANVAS_H + 20 - petal.at[1]),
             "--sway": u(petal.sway),
             "--duration": `${petal.duration}s`,
@@ -80,10 +82,7 @@ const FallingPetals: React.FC = () => (
           } as React.CSSProperties
         }
       >
-        <svg viewBox="0 0 20 28" width="100%" height="100%" aria-hidden="true">
-          <path d="M10 0C17 6 20 15 15 24C13 27 7 27 5 24C0 15 3 6 10 0Z" fill={petal.color} />
-          <path d="M10 5C9.5 12 10 18 10 24" stroke="#c9a59a" strokeWidth="0.8" fill="none" opacity="0.6" />
-        </svg>
+        <SakuraPetal color={SAKURA_COLORS[idx % SAKURA_COLORS.length]} />
       </div>
     ))}
   </div>

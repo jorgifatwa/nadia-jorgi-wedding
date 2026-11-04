@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import confetti from "canvas-confetti";
 import { useWeddingAudio } from "./WeddingAudio";
 import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
+import { SAKURA_COLORS, SakuraPetal } from "./Sakura";
 import {
   CLOSED_FLAP_CLIP,
   CLOSED_REST_CLIP,
@@ -26,6 +26,8 @@ interface EnvelopeLandingProps {
   onOpen?: () => void;
   // Called once the transition has faded out and the landing can be removed
   onFinished?: () => void;
+  // Called when the petals spill out of the opened envelope, with the opening's position on screen (viewport px)
+  onPetalBurst?: (x: number, y: number) => void;
   coupleNames?: string;
 }
 
@@ -57,8 +59,21 @@ const travelFrom = {
 
 const SECTION1_H = 903.8;
 
+// The wax seal and the five petals it breaks into: thrown out around it (canvas units), each turning as it goes
+const SEAL_CENTER: [x: number, y: number] = [220, 427.9];
+const SEAL_PETALS = Array.from({ length: 5 }, (_, i) => {
+  const angle = ((-90 + i * 72 + 12) * Math.PI) / 180;
+  const distance = 46 + (i % 2) * 14;
+  return {
+    dx: +(Math.cos(angle) * distance).toFixed(1),
+    dy: +(Math.sin(angle) * distance).toFixed(1),
+    r0: -90 + i * 72 + 12 + 90,
+    spin: i % 2 ? 160 : -140,
+  };
+});
+
 // Transition timeline in ms; the per-piece choreography lives in globals.css (.env-opening rules) on the same clock
-const CONFETTI_AT = 1700;
+const PETAL_BURST_AT = 1700;
 const SECTION_READY_AT = 2300;
 const FADE_OUT_AT = 2400;
 const FINISHED_AT = 2750;
@@ -110,7 +125,7 @@ const canvasStyle: React.CSSProperties = {
   containerType: "inline-size",
 };
 
-export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFinished, coupleNames = "Nadia & Jorgi" }) => {
+export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFinished, onPetalBurst, coupleNames = "Nadia & Jorgi" }) => {
   const { playAudio } = useWeddingAudio();
   const [stage, setStage] = useState<"closed" | "opening" | "done">("closed");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -148,16 +163,11 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
     at(fadeAt + (FINISHED_AT - FADE_OUT_AT), () => onFinished?.());
   };
 
-  const burstConfetti = () => {
-    try {
-      confetti({ particleCount: 85, spread: 70, origin: { y: 0.4 }, colors: ["#d4af37", "#fdfaf5", "#800020", "#e8b4b8", "#234330"] });
-      setTimeout(() => {
-        confetti({ particleCount: 50, angle: 60, spread: 60, origin: { x: 0.05, y: 0.55 }, colors: ["#d4af37", "#fdfaf5", "#800020"] });
-        confetti({ particleCount: 50, angle: 120, spread: 60, origin: { x: 0.95, y: 0.55 }, colors: ["#d4af37", "#fdfaf5", "#800020"] });
-      }, 300);
-    } catch {
-      // Ignore if canvas is unavailable
-    }
+  // Petals spill out of the envelope while the card rises: from wherever its opening is on screen at that moment
+  const mouthRef = useRef<HTMLDivElement | null>(null);
+  const burstPetals = () => {
+    const mouth = mouthRef.current?.getBoundingClientRect();
+    if (mouth) onPetalBurst?.(mouth.left + mouth.width / 2, mouth.top);
   };
 
   const handleClick = () => {
@@ -179,7 +189,7 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
       finish(FADE_OUT_AT - SECTION_READY_AT);
       return;
     }
-    at(CONFETTI_AT, burstConfetti);
+    at(PETAL_BURST_AT, burstPetals);
     finish(FADE_OUT_AT);
   };
 
@@ -355,6 +365,8 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
             </div>
           </div>
           <EnvelopeFront />
+          {/* The envelope opening (centre of the hinge line), where the petal burst comes from */}
+          <div ref={mouthRef} style={{ position: "absolute", left: u(220), top: u(ENVELOPE_HINGE_Y), width: 1, height: 1 }} />
         </div>
       )}
 
@@ -387,6 +399,27 @@ export const EnvelopeLanding: React.FC<EnvelopeLandingProps> = ({ onOpen, onFini
             style={{ width: "100%", height: "100%", display: "block" }}
           />
         </div>
+        {/* The seal breaks into sakura petals (styled by .env-seal-petal) */}
+        {SEAL_PETALS.map((petal, i) => (
+          <div
+            key={i}
+            className="env-seal-petal"
+            style={
+              {
+                left: u(SEAL_CENTER[0] - 7),
+                top: u(SEAL_CENTER[1] - 8.4),
+                width: u(14),
+                height: u(16.8),
+                "--dx": u(petal.dx),
+                "--dy": u(petal.dy),
+                "--r0": `${petal.r0}deg`,
+                "--spin": `${petal.spin}deg`,
+              } as React.CSSProperties
+            }
+          >
+            <SakuraPetal color={SAKURA_COLORS[i % SAKURA_COLORS.length]} />
+          </div>
+        ))}
         <ClippedImage src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`} alt="Envelope Florals" img={[13.65, 267.44, 197.2, 246.5]} className="env-bouquet" />
         <ClippedImage
           src={`${MEDIA}/db0864fe40bc6ca7bbc792b018d97de3.webp`}

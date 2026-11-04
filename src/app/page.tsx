@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { WeddingAudioProvider } from "@/components/WeddingAudio";
 import { ToastProvider } from "@/components/Toast";
 import { EnvelopeLanding } from "@/components/EnvelopeLanding";
@@ -14,11 +14,15 @@ import { RevealObserver } from "@/components/RevealObserver";
 import { ContentGuard } from "@/components/ContentGuard";
 import { ParallaxObserver } from "@/components/ParallaxObserver";
 import { ClosingSection } from "@/components/ClosingSection";
+import { SakuraLayer, type SakuraHandle } from "@/components/Sakura";
 
 export default function Home() {
   // The invitation mounts while the envelope-opening transition is still on top, then the landing is removed
   const [isOpened, setIsOpened] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
+  // Sakura petals spill out of the opened envelope, then keep falling over the whole invitation
+  const sakura = useRef<SakuraHandle | null>(null);
+  const [petalsOut, setPetalsOut] = useState(false);
 
   return (
     <WeddingAudioProvider>
@@ -79,7 +83,20 @@ export default function Home() {
                 <ClosingSection />
               </div>
             )}
-            {showLanding && <EnvelopeLanding onOpen={() => setIsOpened(true)} onFinished={() => setShowLanding(false)} />}
+            {showLanding && (
+              <EnvelopeLanding
+                onOpen={() => setIsOpened(true)}
+                onFinished={() => {
+                  setShowLanding(false);
+                  setPetalsOut(true); // a skipped opening has no burst, but still gets the rain
+                }}
+                onPetalBurst={(x, y) => {
+                  sakura.current?.burst(x, y);
+                  setPetalsOut(true);
+                }}
+              />
+            )}
+            <SakuraLayer ref={sakura} raining={petalsOut} enterFromTop />
           </div>
         </main>
       </ToastProvider>
