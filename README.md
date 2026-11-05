@@ -69,4 +69,5 @@ Setelah online:
 | `src/lib/` | Validasi ucapan, autentikasi admin, penyimpanan (Postgres / file JSON) |
 | `scripts/seed.mjs` | Seed tabel + akun admin (`pnpm db:seed`) |
 | `scripts/test-api.mjs` | Kasus uji API semua fitur (`pnpm test:api`) |
+| `scripts/mix-waves.mjs` | Mencampur suara ombak lembut di bawah lagu (`audio-src/`) menjadi `public/audio/love-letter-waves.m4a` (macOS) |
 | `public/` | Aset gambar, font, audio, animasi |

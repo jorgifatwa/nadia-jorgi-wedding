@@ -24,8 +24,8 @@ const AudioContext = createContext<AudioContextType>({
 
 export const useWeddingAudio = () => useContext(AudioContext);
 
-// Played from the start and looped
-const SONG_SRC = "/audio/Love Letter From The Sea to The Shore.mp3";
+// Played from the start and looped; soft shore waves are mixed in under the song (scripts/mix-waves.mjs)
+const SONG_SRC = "/audio/love-letter-waves.m4a";
 
 export const WeddingAudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(false);
