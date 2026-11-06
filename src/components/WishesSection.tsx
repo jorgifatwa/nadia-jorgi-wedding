@@ -111,7 +111,7 @@ export const WishesSection: React.FC = () => {
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [newWishId, setNewWishId] = useState<string | null>(null);
-  // Problems are shown under the form; a successful send is announced with a toast, like the copied account number
+  // Problems are shown under the form (a successful send gets the pop-up below)
   const [error, setError] = useState<string | null>(null);
   // Joke pop-up, shown after every sent wish (instead of the thank-you toast) and for a wish with rude words (instead of
   // the polite line under the button)
