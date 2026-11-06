@@ -7,14 +7,14 @@ import jsQR from "jsqr";
 // Reception desk on the wedding day, on the committee's phones: log in with the shared PIN, scan guests' QR codes (or
 // find them by name), add guests who are not on the list. Several phones can work at once; the list refreshes itself.
 
-type Source = "admin" | "self" | "desk";
+type Source = "admin" | "self" | "desk" | "paper";
 
 interface DeskGuest {
   id: string;
   name: string;
   source: Source;
   checkedInAt: string | null;
-  // Group invitation a "self" guest came from
+  // Group a "self" guest came from, or a "paper" guest was filed under
   group: string | null;
 }
 
@@ -57,7 +57,15 @@ const guestIdFromQr = (text: string) => {
 };
 
 const sourceLabel = (guest: DeskGuest) =>
-  guest.source === "self" ? (guest.group ? `Grup: ${guest.group}` : "Link umum") : guest.source === "desk" ? "Ditambah di lokasi" : null;
+  guest.source === "self"
+    ? guest.group
+      ? `Grup: ${guest.group}`
+      : "Link umum"
+    : guest.source === "paper"
+      ? `Undangan kertas${guest.group ? ` · ${guest.group}` : ""}`
+      : guest.source === "desk"
+        ? "Ditambah di lokasi"
+        : null;
 
 const Spinner: React.FC<{ className?: string }> = ({ className = "h-4 w-4" }) => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={`animate-spin ${className}`}>

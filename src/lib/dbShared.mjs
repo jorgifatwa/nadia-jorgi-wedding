@@ -25,10 +25,10 @@ create table if not exists guests (
   responded_at timestamptz
 );
 -- QR check-in at the venue. source: 'admin' (added in the admin), 'self' (took a QR from a group link),
--- 'desk' (added by the reception desk on the day)
+-- 'desk' (added by the reception desk on the day), 'paper' (paper invitation, added in the admin's guest list)
 alter table guests add column if not exists source text not null default 'admin';
 alter table guests add column if not exists checked_in_at timestamptz;
--- For 'self' guests: the group invitation (an admin guest without a WhatsApp number) whose link they opened
+-- For 'self' and 'paper' guests: the group invitation (an admin guest without a WhatsApp number) whose link they opened
 alter table guests add column if not exists group_id text;
 
 create table if not exists settings (

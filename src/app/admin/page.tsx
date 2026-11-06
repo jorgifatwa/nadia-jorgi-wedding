@@ -29,8 +29,9 @@ interface Guest {
   sentAt: string | null;
   attendance?: Attendance | null;
   respondedAt?: string | null;
-  // Added in this admin, took a QR from a group link, or added at the reception desk; missing = "admin"
-  source?: "admin" | "self" | "desk";
+  // Added in this admin, took a QR from a group link, added at the reception desk, or a paper invitation added in the
+  // guest list; missing = "admin"
+  source?: "admin" | "self" | "desk" | "paper";
   checkedInAt?: string | null;
   groupId?: string | null;
 }
@@ -969,6 +970,11 @@ const sourceLabel = (guest: Guest, groupNames: Map<string, string>) => {
     const group = groupNames.get(guest.groupId);
     return group ? `Grup: ${group}` : "Grup (sudah dihapus)";
   }
+  if (guest.source === "paper") {
+    if (!guest.groupId) return "Undangan kertas";
+    const group = groupNames.get(guest.groupId);
+    return group ? `Undangan kertas · Grup: ${group}` : "Undangan kertas · Grup (sudah dihapus)";
+  }
   return guest.source === "desk" ? "Ditambah di lokasi" : "Undangan pribadi";
 };
 
@@ -1264,9 +1270,10 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
 };
 
 // Everyone on the list in one table: personal and group invitations (whether sent), the people who took a QR from a
-// group or the general link, the guests added at the desk, their RSVP and their check-in. Entries can be deleted here;
-// adding, sending and checking in stay in the Kirim Undangan and Check-in tabs.
-type GuestKind = "pribadi" | "grup" | "anggota" | "umum" | "lokasi";
+// group or the general link, the guests added at the desk, their RSVP and their check-in. Guests with a paper
+// invitation (no link, e.g. the parents' guests) are added here, optionally under a group (existing or new); entries
+// can be edited and deleted here; sending and checking in stay in the Kirim Undangan and Check-in tabs.
+type GuestKind = "pribadi" | "grup" | "anggota" | "umum" | "lokasi" | "kertas";
 
 interface GuestListRow {
   guest: Guest;
@@ -1294,6 +1301,7 @@ const KIND_FILTERS = [
   ["pribadi", "Undangan pribadi"],
   ["grup", "Undangan grup"],
   ["anggota", "Anggota grup"],
+  ["kertas", "Undangan kertas"],
   ["umum", "Link umum"],
   ["lokasi", "Ditambah di lokasi"],
 ] as const;
@@ -1319,7 +1327,15 @@ const buildGuestList = (guests: Guest[], wishes: Wish[]): GuestListRow[] => {
         };
       }
       const kind: GuestKind =
-        guest.source === "self" ? (guest.groupId ? "anggota" : "umum") : guest.source === "desk" ? "lokasi" : "pribadi";
+        guest.source === "self"
+          ? guest.groupId
+            ? "anggota"
+            : "umum"
+          : guest.source === "desk"
+            ? "lokasi"
+            : guest.source === "paper"
+              ? "kertas"
+              : "pribadi";
       let attendance = guest.attendance ?? null;
       let rsvpFromWish = false;
       if (!attendance && kind !== "pribadi") {
@@ -1375,8 +1391,10 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
       if (!next.delete(id)) next.add(id);
       return next;
     });
-  // Everyone who took a QR from the group's link, whatever the filters (they are listed under the group by name)
-  const membersOf = (groupId: string) => rows.filter((row) => row.kind === "anggota" && row.guest.groupId === groupId);
+  // Everyone filed under the group (QR taken from its link, or paper invitations added to it), whatever the filters
+  const membersOf = (groupId: string) => rows.filter((row) => row.kind !== "grup" && row.guest.groupId === groupId);
+  // The add / edit window: a new paper-invitation guest, or the entry being edited
+  const [form, setForm] = useState<{ mode: "add" } | { mode: "edit"; guest: Guest } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1424,7 +1442,7 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
             Undangan grup <span className="font-semibold text-[#1f2a22]">{row.guest.name}</span> akan dihapus dan link grupnya tidak
             terhubung lagi ke grup ini.
             {row.members && row.members.total > 0
-              ? ` ${row.members.total} anggota yang sudah membuat QR tetap ada di daftar dan QR mereka tetap bisa dipakai check-in.`
+              ? ` ${row.members.total} anggotanya tetap ada di daftar dan tetap bisa check-in.`
               : ""}
           </>
         ) : (
@@ -1541,9 +1559,14 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
         )}
       </td>
       <td className="px-4 py-3 text-right">
-        <Button variant="danger" onClick={() => remove(row)} className="px-2.5 py-1.5 text-xs">
-          Hapus
-        </Button>
+        <div className="flex justify-end gap-1.5">
+          <Button onClick={() => setForm({ mode: "edit", guest: row.guest })} className="px-2.5 py-1.5 text-xs">
+            Edit
+          </Button>
+          <Button variant="danger" onClick={() => remove(row)} className="px-2.5 py-1.5 text-xs">
+            Hapus
+          </Button>
+        </div>
       </td>
     </tr>
   );
@@ -1599,6 +1622,9 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
           ))}
         </select>
         <div className="ml-auto flex gap-2">
+          <Button variant="primary" onClick={() => setForm({ mode: "add" })} disabled={!loaded}>
+            + Tambah Tamu
+          </Button>
           <Button onClick={exportCsv} disabled={visible.length === 0}>
             Ekspor CSV
           </Button>
@@ -1622,11 +1648,11 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
               <th className="w-44 px-4 py-3 font-medium">Undangan</th>
               <th className="w-40 px-4 py-3 font-medium">Konfirmasi</th>
               <th className="w-40 px-4 py-3 font-medium">Check-in</th>
-              <th className="w-24 px-4 py-3" />
+              <th className="w-36 px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
-            {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "w-24", "w-16", "w-20", "ml-auto w-14"]} />}
+            {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "w-24", "w-16", "w-20", "ml-auto w-24"]} />}
             {pagination.pageItems.map((row) => (
               <React.Fragment key={row.guest.id}>
                 {renderRow(row)}
@@ -1644,6 +1670,189 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
         </table>
         {loaded && <Pagination {...pagination} />}
       </div>
+
+      {form && (
+        <GuestFormModal
+          editing={form.mode === "edit" ? form.guest : null}
+          guests={guests}
+          onSaved={load}
+          onClose={() => setForm(null)}
+          onAuthError={onAuthError}
+        />
+      )}
+    </div>
+  );
+};
+
+const NEW_GROUP = "__new__";
+
+// Adds a paper-invitation guest (Enter saves and keeps the window open for the next one, with the same group), or
+// edits an entry: a person's name and, unless invited personally, their group; a group invitation's name
+const GuestFormModal: React.FC<{
+  editing: Guest | null;
+  guests: Guest[];
+  onSaved: () => Promise<void>;
+  onClose: () => void;
+  onAuthError: () => void;
+}> = ({ editing, guests, onSaved, onClose, onAuthError }) => {
+  const isGroup = !!editing && isGroupInvite(editing);
+  // Personal invitations keep their own link: no group
+  const canPickGroup = !editing || (editing.source ?? "admin") !== "admin";
+  const groups = useMemo(() => guests.filter(isGroupInvite).sort((a, b) => a.name.localeCompare(b.name, "id")), [guests]);
+  const [name, setName] = useState(editing?.name ?? "");
+  const [groupChoice, setGroupChoice] = useState(editing?.groupId && groups.some((g) => g.id === editing.groupId) ? editing.groupId : "");
+  const [newGroup, setNewGroup] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [added, setAdded] = useState<string[]>([]);
+  const nameRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    nameRef.current?.focus();
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const creatingGroup = canPickGroup && groupChoice === NEW_GROUP;
+  const valid = name.trim().length >= 2 && (!creatingGroup || newGroup.trim().length >= 2);
+
+  const save = async (addAnother: boolean) => {
+    if (!valid || busy) return;
+    setBusy(true);
+    setError(null);
+    const group = canPickGroup && !isGroup ? (creatingGroup ? { newGroup: newGroup.trim() } : { groupId: groupChoice || null }) : {};
+    try {
+      if (editing) {
+        await api("/api/admin/guests", { method: "PATCH", body: JSON.stringify({ id: editing.id, name: name.trim(), ...group }) });
+      } else {
+        const { guest } = await api<{ guest: Guest }>("/api/admin/guests", {
+          method: "POST",
+          body: JSON.stringify({ person: { name: name.trim(), ...group } }),
+        });
+        // The next guest goes into the same group, also when it was just created
+        if (creatingGroup && guest.groupId) {
+          setGroupChoice(guest.groupId);
+          setNewGroup("");
+        }
+        setAdded((prev) => [guest.name, ...prev]);
+      }
+      await onSaved();
+      if (addAnother) {
+        setName("");
+        nameRef.current?.focus();
+      } else {
+        onClose();
+      }
+    } catch (err) {
+      if ((err as { status?: number }).status === 401) onAuthError();
+      else setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const fieldClass = "mt-1.5 w-full rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]";
+  const title = editing ? (isGroup ? "Edit Grup" : "Edit Tamu") : "Tambah Tamu Undangan Kertas";
+
+  return (
+    <div className="admin-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-[#1f2a22]/45 backdrop-blur-[2px]" onClick={() => !busy && onClose()}>
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guest-form-title"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          save(!editing);
+        }}
+        className="admin-modal-card w-[460px] rounded-2xl bg-white p-6 shadow-[0_24px_60px_rgba(31,42,34,0.25)]"
+      >
+        <h2 id="guest-form-title" className="text-base font-semibold text-[#1f2a22]">
+          {title}
+        </h2>
+        {!editing && (
+          <p className="mt-1 text-sm leading-relaxed text-[#5c645d]">
+            Untuk tamu yang hanya menerima undangan kertas (misalnya tamu orang tua). Mereka masuk daftar tamu dan bisa dicari
+            namanya oleh penerima tamu saat check-in.
+          </p>
+        )}
+
+        <label className="mt-5 block text-sm font-medium text-[#1f2a22]">
+          {isGroup ? "Nama grup" : "Nama tamu"}
+          <input
+            ref={nameRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={80}
+            placeholder={isGroup ? "Contoh: Rekan Kantor Papa" : "Contoh: Bapak Ahmad & Keluarga"}
+            className={fieldClass}
+          />
+        </label>
+
+        {canPickGroup && !isGroup && (
+          <label className="mt-4 block text-sm font-medium text-[#1f2a22]">
+            Grup <span className="font-normal text-[#8a8374]">(opsional)</span>
+            <select value={groupChoice} onChange={(e) => setGroupChoice(e.target.value)} className={fieldClass}>
+              <option value="">Tanpa grup</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+              <option value={NEW_GROUP}>+ Buat grup baru…</option>
+            </select>
+          </label>
+        )}
+        {creatingGroup && (
+          <label className="mt-3 block text-sm font-medium text-[#1f2a22]">
+            Nama grup baru
+            <input
+              value={newGroup}
+              onChange={(e) => setNewGroup(e.target.value)}
+              maxLength={80}
+              placeholder="Contoh: Tamu Mama, Keluarga Bandung"
+              autoFocus
+              className={fieldClass}
+            />
+          </label>
+        )}
+
+        {error && <p className="mt-4 whitespace-pre-line rounded-lg bg-[#fdf1f1] p-3 text-sm text-[#9b1c1c]">{error}</p>}
+        {added.length > 0 && (
+          <p className="mt-4 rounded-lg bg-[#eef6f0] p-3 text-sm text-[#1f6b3a] [overflow-wrap:anywhere]">
+            ✓ Ditambahkan ({added.length}): {added.slice(0, 5).join(", ")}
+            {added.length > 5 ? ", …" : ""}
+          </p>
+        )}
+
+        <div className="mt-6 flex items-center justify-end gap-2">
+          <Button type="button" onClick={onClose} disabled={busy}>
+            {added.length > 0 ? "Selesai" : "Batal"}
+          </Button>
+          {editing ? (
+            <Button type="submit" variant="primary" disabled={!valid || busy}>
+              {busy && <Spinner />}
+              {busy ? "Menyimpan..." : "Simpan"}
+            </Button>
+          ) : (
+            <>
+              <Button type="button" onClick={() => save(false)} disabled={!valid || busy}>
+                Simpan &amp; Tutup
+              </Button>
+              <Button type="submit" variant="primary" disabled={!valid || busy}>
+                {busy && <Spinner />}
+                {busy ? "Menyimpan..." : "Simpan & Tambah Lagi"}
+              </Button>
+            </>
+          )}
+        </div>
+        {!editing && (
+          <p className="mt-3 text-right text-xs text-[#8a8374]">
+            Tekan Enter untuk simpan &amp; tambah lagi; grup yang dipilih tetap terpakai untuk tamu berikutnya.
+          </p>
+        )}
+      </form>
     </div>
   );
 };
