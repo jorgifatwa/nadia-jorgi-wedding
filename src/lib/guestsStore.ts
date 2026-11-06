@@ -62,6 +62,8 @@ Menara BP Jamsostek Lantai 9, Jakarta Selatan
 Berikut link undangan kami untuk info lengkap dari acara:
 {link}
 
+Mohon simpan *QR Check-in* yang tersedia di undangan untuk ditunjukkan kepada penerima tamu saat hadir.
+
 Merupakan suatu kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan untuk hadir dan memberikan doa restu.
 
 Mohon maaf perihal undangan hanya dibagikan melalui pesan ini.

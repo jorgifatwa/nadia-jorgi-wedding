@@ -795,6 +795,16 @@ html {
   color: rgba(250, 243, 237, 0.85);
 }
 
+.checkin-pass-intro {
+  margin: 6px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(250, 243, 237, 0.25);
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #faf3ed;
+}
+
 .checkin-pass-name {
   margin: 4px 0 0;
   font-size: 17px;

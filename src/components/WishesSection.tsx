@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
 import { useToast } from "./Toast";
+import { CheckinPassDialog } from "./CheckinPass";
 import { ATTENDANCE_OPTIONS, MESSAGE_MAX, NAME_MAX, attendanceLabel, validateWish, type Attendance } from "@/lib/wishValidation";
 
 interface Wish {
@@ -113,6 +114,8 @@ export const WishesSection: React.FC = () => {
   const [newWishId, setNewWishId] = useState<string | null>(null);
   // Problems are shown under the form; a successful send is announced with a toast, like the copied account number
   const [error, setError] = useState<string | null>(null);
+  // Name of a guest who just confirmed "Hadir": the QR check-in opens for them to save it
+  const [passFor, setPassFor] = useState<string | null>(null);
   const { showToast } = useToast();
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -206,7 +209,9 @@ export const WishesSection: React.FC = () => {
       setNewWishId(newWish.id);
       setMessage("");
       setAttendance("");
-      showToast("Terima kasih, ucapan Anda sudah terkirim!");
+      // Coming to the reception: straight to the QR to save; the thank-you is then at the top of the QR window
+      if (attendance === "hadir") setPassFor(name.trim());
+      else showToast("Terima kasih, ucapan Anda sudah terkirim!");
     } catch {
       setError("Koneksi bermasalah, silakan coba lagi.");
     } finally {
@@ -472,6 +477,14 @@ export const WishesSection: React.FC = () => {
         reveal="rise"
         parallax="floor"
       />
+
+      {passFor !== null && (
+        <CheckinPassDialog
+          intro="Terima kasih, ucapan Anda sudah terkirim! Kami menantikan kehadiran Anda."
+          suggestedName={passFor}
+          onClose={() => setPassFor(null)}
+        />
+      )}
     </section>
   );
 };

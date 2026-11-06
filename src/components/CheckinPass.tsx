@@ -41,7 +41,15 @@ const qrFileName = (pass: Pass) => `QR Check-in - ${pass.name}.png`;
 
 const passLink = (pass: Pass) => `${window.location.origin}/?to=${encodeURIComponent(pass.name)}&g=${pass.id}`;
 
-export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+interface CheckinPassDialogProps {
+  onClose: () => void;
+  // Opened right after the guest confirmed "Hadir" with a wish: a thank-you line above the QR, and the wish's name
+  // ready in the name form (group and general links)
+  intro?: string;
+  suggestedName?: string;
+}
+
+export const CheckinPassDialog: React.FC<CheckinPassDialogProps> = ({ onClose, intro, suggestedName = "" }) => {
   const [pass, setPass] = useState<Pass | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   // The QR as a PNG file, ready before "Simpan QR" is tapped (the share sheet must open straight from the tap)
@@ -50,7 +58,7 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
   const [view, setView] = useState<"loading" | "form" | "pass" | "offline">("loading");
   // Bumped by "Coba lagi" to look the link up again
   const [attempt, setAttempt] = useState(0);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(suggestedName.slice(0, NAME_MAX));
   // The group invitation whose link this is, if any: new QRs are filed under it
   const [group, setGroup] = useState<{ id: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -195,6 +203,7 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
           ✕
         </button>
         <p style={{ fontFamily: SCRIPT_FONT, fontSize: 40, lineHeight: "52px", margin: 0 }}>QR Check-in</p>
+        {intro && <p className="checkin-pass-intro">{intro}</p>}
 
         {view === "loading" && <p className="checkin-pass-note">Memuat...</p>}
 
@@ -217,8 +226,8 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
         {view === "form" && (
           <form onSubmit={createPass} style={{ marginTop: 8 }}>
             <p className="checkin-pass-note">
-              {group ? "Undangan ini dibagikan untuk beberapa tamu. " : ""}Tuliskan nama Anda untuk membuat QR check-in pribadi. Tunjukkan
-              QR ini kepada penerima tamu saat tiba di lokasi acara.
+              {group ? "Undangan ini dibagikan untuk beberapa tamu. " : ""}Tuliskan nama Anda untuk membuat QR check-in pribadi, lalu simpan
+              QR-nya untuk ditunjukkan kepada penerima tamu saat tiba di lokasi acara.
             </p>
             <input
               value={name}
@@ -251,7 +260,9 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
                 <span className="checkin-pass-note">Membuat QR...</span>
               )}
             </div>
-            <p className="checkin-pass-note">Tunjukkan QR ini kepada penerima tamu saat tiba di lokasi acara.</p>
+            <p className="checkin-pass-note">
+              Simpan QR ini (atau screenshot layar), lalu tunjukkan kepada penerima tamu saat tiba di lokasi acara agar check-in lebih cepat.
+            </p>
             <a
               href={qr ?? undefined}
               download={qrFileName(pass)}
