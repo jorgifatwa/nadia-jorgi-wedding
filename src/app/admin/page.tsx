@@ -12,6 +12,8 @@ interface Wish {
   name: string;
   message: string;
   attendance?: Attendance;
+  // Guest list entry whose link it was sent from (personal or group invitation)
+  guestId?: string;
   createdAt: string;
 }
 
@@ -33,7 +35,7 @@ interface InviteSettings {
   template: string;
 }
 
-type Tab = "wishes" | "invites" | "checkin";
+type Tab = "wishes" | "guests" | "invites" | "checkin";
 
 const api = async <T,>(url: string, init?: RequestInit): Promise<T> => {
   const res = await fetch(url, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
@@ -1256,6 +1258,312 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   );
 };
 
+// Everyone on the list in one table, read-only: personal and group invitations (whether sent), the people who took a
+// QR from a group or the general link, the guests added at the desk, their RSVP and their check-in. Editing stays in
+// the Kirim Undangan and Check-in tabs.
+type GuestKind = "pribadi" | "grup" | "anggota" | "umum" | "lokasi";
+
+interface GuestListRow {
+  guest: Guest;
+  kind: GuestKind;
+  origin: string;
+  attendance: Attendance | null;
+  // RSVP stored on the guest (personal link), or read from a wish sent under their name (group / general link)
+  rsvpFromWish: boolean;
+  // Group invitations: how many people took a QR from it, and how many of them arrived
+  members?: { total: number; arrived: number };
+}
+
+const STATUS_FILTERS = [
+  ["all", "Semua status"],
+  ["hadir", "Konfirmasi hadir"],
+  ["tidak_hadir", "Konfirmasi tidak hadir"],
+  ["belum_konfirmasi", "Belum konfirmasi"],
+  ["datang", "Sudah check-in"],
+  ["belum_datang", "Belum check-in"],
+  ["belum_dikirim", "Undangan belum dikirim"],
+] as const;
+
+const KIND_FILTERS = [
+  ["all", "Semua asal"],
+  ["pribadi", "Undangan pribadi"],
+  ["grup", "Undangan grup"],
+  ["anggota", "Anggota grup"],
+  ["umum", "Link umum"],
+  ["lokasi", "Ditambah di lokasi"],
+] as const;
+
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+const buildGuestList = (guests: Guest[], wishes: Wish[]): GuestListRow[] => {
+  const groups = guests.filter(isGroupInvite);
+  const groupNames = new Map(groups.map((g) => [g.id, g.name]));
+  // Newest first, so the first match is the latest answer
+  const byNewest = [...wishes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return guests
+    .map((guest): GuestListRow => {
+      if (isGroupInvite(guest)) {
+        const members = guests.filter((g) => g.groupId === guest.id);
+        return {
+          guest,
+          kind: "grup",
+          origin: "Undangan grup",
+          attendance: null,
+          rsvpFromWish: false,
+          members: { total: members.length, arrived: members.filter((m) => m.checkedInAt).length },
+        };
+      }
+      const kind: GuestKind =
+        guest.source === "self" ? (guest.groupId ? "anggota" : "umum") : guest.source === "desk" ? "lokasi" : "pribadi";
+      let attendance = guest.attendance ?? null;
+      let rsvpFromWish = false;
+      if (!attendance && kind !== "pribadi") {
+        // A wish under the same name, sent from this person's group link or the general link
+        const wish = byNewest.find(
+          (w) => w.attendance && sameName(w.name, guest.name) && (!w.guestId || w.guestId === guest.groupId || w.guestId === guest.id),
+        );
+        if (wish?.attendance) {
+          attendance = wish.attendance;
+          rsvpFromWish = true;
+        }
+      }
+      return { guest, kind, origin: sourceLabel(guest, groupNames), attendance, rsvpFromWish };
+    })
+    .sort((a, b) => a.guest.name.localeCompare(b.guest.name, "id"));
+};
+
+const matchesStatus = (row: GuestListRow, status: (typeof STATUS_FILTERS)[number][0]) => {
+  const person = row.kind !== "grup";
+  switch (status) {
+    case "all":
+      return true;
+    case "hadir":
+    case "tidak_hadir":
+      return row.attendance === status;
+    case "belum_konfirmasi":
+      return person && !row.attendance;
+    case "datang":
+      return person && !!row.guest.checkedInAt;
+    case "belum_datang":
+      return person && !row.guest.checkedInAt;
+    case "belum_dikirim":
+      return (row.kind === "pribadi" || row.kind === "grup") && !row.guest.sentAt;
+  }
+};
+
+const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
+  const [rows, setRows] = useState<GuestListRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState<(typeof KIND_FILTERS)[number][0]>("all");
+  const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number][0]>("all");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [guestData, wishData] = await Promise.all([
+        api<{ guests: Guest[] }>("/api/admin/guests"),
+        api<{ wishes: Wish[] }>("/api/admin/wishes"),
+      ]);
+      setRows(buildGuestList(guestData.guests, wishData.wishes));
+      setError(null);
+    } catch (err) {
+      if ((err as { status?: number }).status === 401) onAuthError();
+      else setError((err as Error).message);
+    } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  }, [onAuthError]);
+
+  useEffect(() => {
+    const initial = setTimeout(load, 0);
+    return () => clearTimeout(initial);
+  }, [load]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    // Numbers are stored as 62...; a search typed as 0812... finds them too
+    const digits = q.replace(/\D/g, "").replace(/^0/, "62");
+    const matchesQuery = (row: GuestListRow) =>
+      !q ||
+      row.guest.name.toLowerCase().includes(q) ||
+      row.origin.toLowerCase().includes(q) ||
+      (digits.length >= 3 && (row.guest.phone ?? "").includes(digits));
+    return rows.filter((row) => (kind === "all" || row.kind === kind) && matchesStatus(row, status) && matchesQuery(row));
+  }, [rows, query, kind, status]);
+  const pagination = usePagination(visible);
+
+  const people = rows.filter((row) => row.kind !== "grup");
+  const invitationText = (row: GuestListRow) =>
+    row.kind === "pribadi" || row.kind === "grup" ? (row.guest.sentAt ? `Terkirim ${formatDate(row.guest.sentAt)}` : "Belum dikirim") : "-";
+  const checkinText = (row: GuestListRow) =>
+    row.members ? `${row.members.arrived}/${row.members.total} anggota` : row.guest.checkedInAt ? formatDate(row.guest.checkedInAt) : "Belum datang";
+
+  const exportCsv = () => {
+    const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const csvRows = [
+      ["Nama", "Asal", "WhatsApp", "Undangan", "Konfirmasi", "Check-in"],
+      ...visible.map((row) => [
+        row.guest.name,
+        row.members ? `${row.origin} (${row.members.total} anggota)` : row.origin,
+        row.guest.phone ? formatPhone(row.guest.phone) : "-",
+        invitationText(row),
+        row.attendance ? `${attendanceLabel(row.attendance)}${row.rsvpFromWish ? " (dari ucapan)" : ""}` : "-",
+        checkinText(row),
+      ]),
+    ];
+    const blob = new Blob(["﻿" + csvRows.map((row) => row.map(escape).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "daftar-tamu-nadia-jorgi.csv";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const selectClass = "rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]";
+
+  return (
+    <div>
+      <div className="grid grid-cols-5 gap-4">
+        <StatCard label="Total Tamu" value={people.length} loading={!loaded} />
+        <StatCard label="Undangan Grup" value={rows.length - people.length} loading={!loaded} tone="text-[#3d5a80]" />
+        <StatCard label="Konfirmasi Hadir" value={people.filter((r) => r.attendance === "hadir").length} loading={!loaded} tone="text-[#1f8f4e]" />
+        <StatCard label="Tidak Hadir" value={people.filter((r) => r.attendance === "tidak_hadir").length} loading={!loaded} tone="text-[#9b1c1c]" />
+        <StatCard label="Sudah Check-in" value={people.filter((r) => r.guest.checkedInAt).length} loading={!loaded} tone="text-[#a06a12]" />
+      </div>
+
+      <div className="mt-6 flex items-center gap-3">
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            pagination.setPage(1);
+          }}
+          placeholder="Cari nama, grup, atau nomor..."
+          className="w-72 rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]"
+        />
+        <select
+          value={kind}
+          onChange={(e) => {
+            setKind(e.target.value as typeof kind);
+            pagination.setPage(1);
+          }}
+          aria-label="Asal tamu"
+          className={selectClass}
+        >
+          {KIND_FILTERS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value as typeof status);
+            pagination.setPage(1);
+          }}
+          aria-label="Status tamu"
+          className={selectClass}
+        >
+          {STATUS_FILTERS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <div className="ml-auto flex gap-2">
+          <Button onClick={exportCsv} disabled={visible.length === 0}>
+            Ekspor CSV
+          </Button>
+          <Button onClick={load} disabled={loading}>
+            {loading && <Spinner />}
+            {loading ? "Memuat..." : "Muat Ulang"}
+          </Button>
+        </div>
+      </div>
+
+      {error && <p className="mt-4 rounded-lg bg-[#fdf1f1] p-3 text-sm text-[#9b1c1c]">{error}</p>}
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-[#e5dfd3] bg-white">
+        <table className={`w-full table-fixed text-left text-sm transition-opacity ${loading && loaded ? "opacity-50" : ""}`} aria-busy={loading}>
+          {loading && loaded && <LoadingCaption />}
+          <thead className="bg-[#faf8f4] text-xs uppercase tracking-wider text-[#8a8374]">
+            <tr>
+              <th className="px-4 py-3 font-medium">Nama</th>
+              <th className="w-52 px-4 py-3 font-medium">Asal</th>
+              <th className="w-40 px-4 py-3 font-medium">WhatsApp</th>
+              <th className="w-44 px-4 py-3 font-medium">Undangan</th>
+              <th className="w-40 px-4 py-3 font-medium">Konfirmasi</th>
+              <th className="w-40 px-4 py-3 font-medium">Check-in</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
+            {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "w-24", "w-16", "w-20"]} />}
+            {pagination.pageItems.map((row) => (
+              <tr key={row.guest.id} className="align-top hover:bg-[#fcfbf8]">
+                <td className="px-4 py-3 font-medium [overflow-wrap:anywhere]">{row.guest.name}</td>
+                <td className="px-4 py-3 text-[#3d463f] [overflow-wrap:anywhere]">
+                  {row.origin}
+                  {row.members && <div className="text-xs text-[#8a8374]">{row.members.total} anggota terdaftar</div>}
+                </td>
+                <td className="px-4 py-3 text-[#3d463f]">{row.guest.phone ? formatPhone(row.guest.phone) : <span className="text-[#b3ab9c]">-</span>}</td>
+                <td className="px-4 py-3">
+                  {row.kind === "pribadi" || row.kind === "grup" ? (
+                    row.guest.sentAt ? (
+                      <span className="text-xs text-[#1f6b3a]">Terkirim {formatDate(row.guest.sentAt)}</span>
+                    ) : (
+                      <span className="rounded-full bg-[#fff4e0] px-2.5 py-0.5 text-xs font-medium text-[#8a5a12]">Belum dikirim</span>
+                    )
+                  ) : (
+                    <span className="text-[#b3ab9c]">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {row.attendance ? (
+                    <>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          row.attendance === "hadir" ? "bg-[#e6f4ea] text-[#1f6b3a]" : "bg-[#f6eded] text-[#8a2a2a]"
+                        }`}
+                      >
+                        {attendanceLabel(row.attendance)}
+                      </span>
+                      {row.rsvpFromWish && <div className="mt-1 text-xs text-[#8a8374]">dari ucapan</div>}
+                    </>
+                  ) : (
+                    <span className="text-xs text-[#b3ab9c]">{row.kind === "grup" ? "-" : "Belum"}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {row.members ? (
+                    <span className="text-xs text-[#3d463f]">{checkinText(row)}</span>
+                  ) : row.guest.checkedInAt ? (
+                    <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 text-xs font-medium text-[#1f6b3a]">{formatDate(row.guest.checkedInAt)}</span>
+                  ) : (
+                    <span className="text-xs text-[#b3ab9c]">Belum datang</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {loaded && !loading && visible.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-12 text-center text-[#8a8374]">
+                  {rows.length === 0 ? "Belum ada tamu." : "Tidak ada tamu yang cocok."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {loaded && <Pagination {...pagination} />}
+      </div>
+    </div>
+  );
+};
+
 interface Session {
   authenticated: boolean;
   configured: boolean;
@@ -1324,6 +1632,7 @@ export default function AdminPage() {
             {(
               [
                 ["wishes", "Ucapan"],
+                ["guests", "Daftar Tamu"],
                 ["invites", "Kirim Undangan"],
                 ["checkin", "Check-in"],
               ] as const
@@ -1357,6 +1666,8 @@ export default function AdminPage() {
         <ConfirmProvider>
           {tab === "wishes" ? (
             <WishesTab onAuthError={handleAuthError} />
+          ) : tab === "guests" ? (
+            <GuestListTab onAuthError={handleAuthError} />
           ) : tab === "invites" ? (
             <InvitesTab onAuthError={handleAuthError} />
           ) : (
