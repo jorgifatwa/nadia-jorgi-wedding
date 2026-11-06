@@ -961,8 +961,9 @@ const isGroupInvite = (guest: Guest) => (guest.source ?? "admin") === "admin" &&
 
 const sourceLabel = (guest: Guest, groupNames: Map<string, string>) => {
   if (guest.source === "self") {
-    const group = guest.groupId ? groupNames.get(guest.groupId) : undefined;
-    return group ? `Grup: ${group}` : "Link umum";
+    if (!guest.groupId) return "Link umum";
+    const group = groupNames.get(guest.groupId);
+    return group ? `Grup: ${group}` : "Grup (sudah dihapus)";
   }
   return guest.source === "desk" ? "Ditambah di lokasi" : "Undangan pribadi";
 };
@@ -1258,9 +1259,9 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   );
 };
 
-// Everyone on the list in one table, read-only: personal and group invitations (whether sent), the people who took a
-// QR from a group or the general link, the guests added at the desk, their RSVP and their check-in. Editing stays in
-// the Kirim Undangan and Check-in tabs.
+// Everyone on the list in one table: personal and group invitations (whether sent), the people who took a QR from a
+// group or the general link, the guests added at the desk, their RSVP and their check-in. Entries can be deleted here;
+// adding, sending and checking in stay in the Kirim Undangan and Check-in tabs.
 type GuestKind = "pribadi" | "grup" | "anggota" | "umum" | "lokasi";
 
 interface GuestListRow {
@@ -1352,7 +1353,10 @@ const matchesStatus = (row: GuestListRow, status: (typeof STATUS_FILTERS)[number
 };
 
 const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
-  const [rows, setRows] = useState<GuestListRow[]>([]);
+  const confirm = useConfirm();
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [wishes, setWishes] = useState<Wish[]>([]);
+  const rows = useMemo(() => buildGuestList(guests, wishes), [guests, wishes]);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1367,7 +1371,8 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
         api<{ guests: Guest[] }>("/api/admin/guests"),
         api<{ wishes: Wish[] }>("/api/admin/wishes"),
       ]);
-      setRows(buildGuestList(guestData.guests, wishData.wishes));
+      setGuests(guestData.guests);
+      setWishes(wishData.wishes);
       setError(null);
     } catch (err) {
       if ((err as { status?: number }).status === 401) onAuthError();
@@ -1395,6 +1400,38 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
     return rows.filter((row) => (kind === "all" || row.kind === kind) && matchesStatus(row, status) && matchesQuery(row));
   }, [rows, query, kind, status]);
   const pagination = usePagination(visible);
+
+  const remove = (row: GuestListRow) =>
+    confirm({
+      title: row.kind === "grup" ? "Hapus undangan grup?" : "Hapus tamu?",
+      message:
+        row.kind === "grup" ? (
+          <>
+            Undangan grup <span className="font-semibold text-[#1f2a22]">{row.guest.name}</span> akan dihapus dan link grupnya tidak
+            terhubung lagi ke grup ini.
+            {row.members && row.members.total > 0
+              ? ` ${row.members.total} anggota yang sudah membuat QR tetap ada di daftar dan QR mereka tetap bisa dipakai check-in.`
+              : ""}
+          </>
+        ) : (
+          <>
+            <span className="font-semibold text-[#1f2a22]">{row.guest.name}</span> akan dihapus dari daftar, dan QR-nya tidak bisa
+            dipakai check-in lagi.{row.kind === "pribadi" ? " Link undangan pribadinya tidak terhubung lagi ke daftar tamu." : ""}{" "}
+            Ucapan yang sudah dikirim tetap ada.
+          </>
+        ),
+      confirmLabel: row.kind === "grup" ? "Hapus Undangan" : "Hapus Tamu",
+      busyLabel: "Menghapus...",
+      action: async () => {
+        try {
+          await api(`/api/admin/guests?id=${encodeURIComponent(row.guest.id)}`, { method: "DELETE" });
+          setGuests((prev) => prev.filter((g) => g.id !== row.guest.id));
+        } catch (err) {
+          if ((err as { status?: number }).status === 401) onAuthError();
+          else setError((err as Error).message);
+        }
+      },
+    });
 
   const people = rows.filter((row) => row.kind !== "grup");
   const invitationText = (row: GuestListRow) =>
@@ -1499,10 +1536,11 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
               <th className="w-44 px-4 py-3 font-medium">Undangan</th>
               <th className="w-40 px-4 py-3 font-medium">Konfirmasi</th>
               <th className="w-40 px-4 py-3 font-medium">Check-in</th>
+              <th className="w-24 px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
-            {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "w-24", "w-16", "w-20"]} />}
+            {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "w-24", "w-16", "w-20", "ml-auto w-14"]} />}
             {pagination.pageItems.map((row) => (
               <tr key={row.guest.id} className="align-top hover:bg-[#fcfbf8]">
                 <td className="px-4 py-3 font-medium [overflow-wrap:anywhere]">{row.guest.name}</td>
@@ -1547,11 +1585,16 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
                     <span className="text-xs text-[#b3ab9c]">Belum datang</span>
                   )}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <Button variant="danger" onClick={() => remove(row)} className="px-2.5 py-1.5 text-xs">
+                    Hapus
+                  </Button>
+                </td>
               </tr>
             ))}
             {loaded && !loading && visible.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-[#8a8374]">
+                <td colSpan={7} className="px-4 py-12 text-center text-[#8a8374]">
                   {rows.length === 0 ? "Belum ada tamu." : "Tidak ada tamu yang cocok."}
                 </td>
               </tr>
