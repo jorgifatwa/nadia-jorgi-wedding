@@ -146,13 +146,18 @@ export const WishesSection: React.FC = () => {
     let cancelled = false;
     const prefill = setTimeout(async () => {
       // A shared link without a valid guest code still prefills ?to=Name, but leaves it editable
-      if (to) setName((current) => current || to.slice(0, NAME_MAX));
-      if (!id) return;
+      const prefillTo = () => {
+        if (to && !cancelled) setName((current) => current || to.slice(0, NAME_MAX));
+      };
+      if (!id) return prefillTo();
       try {
         const res = await fetch(`/api/wishes/guest?g=${encodeURIComponent(id)}`, { cache: "no-store" });
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { name: string; locked: boolean };
+        if (cancelled) return;
+        if (!res.ok) return prefillTo();
+        const data = (await res.json()) as { name: string; locked: boolean; group?: boolean };
         setGuestId(id);
+        // A group link (?to= is the group's name): each guest types their own name
+        if (data.group) return;
         if (data.locked) {
           setName(data.name);
           setNameLocked(true);
@@ -161,6 +166,7 @@ export const WishesSection: React.FC = () => {
         }
       } catch {
         // Stay with the editable name
+        prefillTo();
       }
     }, 0);
     return () => {
