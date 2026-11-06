@@ -39,28 +39,33 @@ const PROFANITY_ANYWHERE = [
 ];
 
 // Short words only matched as whole words (they occur inside harmless words, e.g. "asu" in "masuk", "cok" in "cocok",
-// "tai" in "pantai", "setan" in "setangkai", "puki" in "pukis")
+// "tai" in "pantai", "setan" in "setangkai", "puki" in "pukis", "anying" in "accompanying")
 const PROFANITY_WHOLE_WORD = [
   "asu", "tai", "taik", "babi", "bego", "bodoh", "dongo", "kunyuk", "monyet", "jembut", "cok", "coli", "puki", "perek",
   "setan", "iblis", "kafir", "ajg", "babik", "bangke", "anjir", "tetek", "ass", "dick", "fag", "sex", "porn",
+  // Sundanese-style softened "anjing"
+  "ajig", "ajing", "anying", "anyink", "njing", "anjim",
 ];
 
 const LEET: Record<string, string> = { "0": "o", "1": "i", "!": "i", "3": "e", "4": "a", "@": "a", "5": "s", $: "s", "7": "t", "8": "b", "9": "g" };
 
-const normalize = (text: string) =>
+// With `leet`, digits and symbols are read as letters ("4jig", "b!tch"); without, they are word breaks ("ajig!")
+const normalize = (text: string, leet: boolean) =>
   text
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[0-9!@$]/g, (ch) => LEET[ch] ?? ch)
+    .replace(/[0-9!@$]/g, (ch) => (leet ? (LEET[ch] ?? ch) : " "))
     .replace(/([a-z])\1+/g, "$1");
 
 export const containsProfanity = (text: string): boolean => {
-  const normalized = normalize(text);
-  const words = normalized.split(/[^a-z]+/).filter(Boolean);
-  // Spaced-out or dotted spellings like "a n j i n g" / "k.o.n.t.o.l": join runs of single letters back together
-  const spelledOut = normalized.match(/(?:\b[a-z]\b[^a-z]*){3,}/g)?.map((run) => run.replace(/[^a-z]/g, "")) ?? [];
-  const candidates = [...words, ...spelledOut];
+  const candidates = [true, false].flatMap((leet) => {
+    const normalized = normalize(text, leet);
+    const words = normalized.split(/[^a-z]+/).filter(Boolean);
+    // Spaced-out or dotted spellings like "a n j i n g" / "k.o.n.t.o.l": join runs of single letters back together
+    const spelledOut = normalized.match(/(?:\b[a-z]\b[^a-z]*){3,}/g)?.map((run) => run.replace(/[^a-z]/g, "")) ?? [];
+    return [...words, ...spelledOut];
+  });
 
   if (candidates.some((word) => PROFANITY_WHOLE_WORD.includes(word))) return true;
   return PROFANITY_ANYWHERE.some((bad) => candidates.some((word) => word.includes(bad)));
