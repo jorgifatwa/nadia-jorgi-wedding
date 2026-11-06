@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
-import { useToast } from "./Toast";
 import { ATTENDANCE_OPTIONS, MESSAGE_MAX, NAME_MAX, PROFANITY_ERROR, attendanceLabel, validateWish, type Attendance } from "@/lib/wishValidation";
 
 interface Wish {
@@ -114,15 +113,15 @@ export const WishesSection: React.FC = () => {
   const [newWishId, setNewWishId] = useState<string | null>(null);
   // Problems are shown under the form; a successful send is announced with a toast, like the copied account number
   const [error, setError] = useState<string | null>(null);
-  // A wish with rude words gets a joke pop-up instead of the polite line under the button
-  const [rude, setRude] = useState(false);
+  // Joke pop-up, shown after every sent wish (instead of the thank-you toast) and for a wish with rude words (instead of
+  // the polite line under the button)
+  const [joke, setJoke] = useState(false);
   const reject = (problem: string) => {
     if (problem === PROFANITY_ERROR) {
       setError(null);
-      setRude(true);
+      setJoke(true);
     } else setError(problem);
   };
-  const { showToast } = useToast();
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const loadWishes = useCallback(async () => {
@@ -209,7 +208,7 @@ export const WishesSection: React.FC = () => {
       setNewWishId(newWish.id);
       setMessage("");
       setAttendance("");
-      showToast("Terima kasih, ucapan Anda sudah terkirim!");
+      setJoke(true);
     } catch {
       setError("Koneksi bermasalah, silakan coba lagi.");
     } finally {
@@ -475,11 +474,11 @@ export const WishesSection: React.FC = () => {
         parallax="floor"
       />
 
-      {rude &&
+      {joke &&
         createPortal(
-          <div role="alertdialog" aria-modal="true" aria-label="Ucapan ditolak" className="checkin-pass-backdrop" onClick={() => setRude(false)}>
+          <div role="alertdialog" aria-modal="true" aria-label="Ucapan" className="checkin-pass-backdrop" onClick={() => setJoke(false)}>
             <div className="checkin-pass-card" onClick={(e) => e.stopPropagation()} style={{ fontFamily: BODY_FONT }}>
-              <button type="button" autoFocus onClick={() => setRude(false)} aria-label="Tutup" className="checkin-pass-close">
+              <button type="button" autoFocus onClick={() => setJoke(false)} aria-label="Tutup" className="checkin-pass-close">
                 ✕
               </button>
               <p style={{ margin: "8px 0 4px", fontSize: 44, lineHeight: 1 }} aria-hidden="true">
