@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
-import { ATTENDANCE_OPTIONS, MESSAGE_MAX, NAME_MAX, PROFANITY_ERROR, attendanceLabel, validateWish, type Attendance } from "@/lib/wishValidation";
+import { useToast } from "./Toast";
+import { ATTENDANCE_OPTIONS, MESSAGE_MAX, NAME_MAX, attendanceLabel, validateWish, type Attendance } from "@/lib/wishValidation";
 
 interface Wish {
   id: string;
@@ -22,8 +22,6 @@ const LABEL_FONT = "'QuattrocentoLocal', 'Quattrocento', serif";
 const REFRESH_MS = 30_000;
 // Keep the loading state visible long enough to read as feedback even when the server answers instantly
 const MIN_LOADING_MS = 700;
-// Off for now: "Kirim Ucapan" sends nothing and only shows the joke pop-up (set to true to accept wishes again)
-const WISHES_OPEN = false;
 
 const relativeTime = (iso: string) => {
   const seconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000);
@@ -113,17 +111,9 @@ export const WishesSection: React.FC = () => {
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [newWishId, setNewWishId] = useState<string | null>(null);
-  // Problems are shown under the form (a successful send gets the pop-up below)
+  // Problems are shown under the form; a successful send is announced with a toast, like the copied account number
   const [error, setError] = useState<string | null>(null);
-  // Joke pop-up: on every "Kirim Ucapan" while WISHES_OPEN is off; otherwise after a sent wish (instead of the
-  // thank-you toast) and for a wish with rude words (instead of the polite line under the button)
-  const [joke, setJoke] = useState(false);
-  const reject = (problem: string) => {
-    if (problem === PROFANITY_ERROR) {
-      setError(null);
-      setJoke(true);
-    } else setError(problem);
-  };
+  const { showToast } = useToast();
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const loadWishes = useCallback(async () => {
@@ -182,15 +172,10 @@ export const WishesSection: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-    if (!WISHES_OPEN) {
-      setError(null);
-      setJoke(true);
-      return;
-    }
 
     const problem = validateWish({ name, message, attendance, nameFromGuestList: nameLocked });
     if (problem) {
-      reject(problem);
+      setError(problem);
       return;
     }
 
@@ -207,7 +192,7 @@ export const WishesSection: React.FC = () => {
       const data = (await res.json()) as { wish?: Wish; error?: string };
       await new Promise((resolve) => setTimeout(resolve, Math.max(0, MIN_LOADING_MS - (Date.now() - started))));
       if (!res.ok || !data.wish) {
-        reject(data.error ?? "Ucapan gagal dikirim, silakan coba lagi.");
+        setError(data.error ?? "Ucapan gagal dikirim, silakan coba lagi.");
         return;
       }
       const newWish = data.wish;
@@ -215,7 +200,7 @@ export const WishesSection: React.FC = () => {
       setNewWishId(newWish.id);
       setMessage("");
       setAttendance("");
-      setJoke(true);
+      showToast("Terima kasih, ucapan Anda sudah terkirim!");
     } catch {
       setError("Koneksi bermasalah, silakan coba lagi.");
     } finally {
@@ -480,22 +465,6 @@ export const WishesSection: React.FC = () => {
         reveal="rise"
         parallax="floor"
       />
-
-      {joke &&
-        createPortal(
-          <div role="alertdialog" aria-modal="true" aria-label="Ucapan" className="checkin-pass-backdrop" onClick={() => setJoke(false)}>
-            <div className="checkin-pass-card" onClick={(e) => e.stopPropagation()} style={{ fontFamily: BODY_FONT }}>
-              <button type="button" autoFocus onClick={() => setJoke(false)} aria-label="Tutup" className="checkin-pass-close">
-                ✕
-              </button>
-              <p style={{ margin: "8px 0 4px", fontSize: 44, lineHeight: 1 }} aria-hidden="true">
-                🤨
-              </p>
-              <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 24, lineHeight: 1.3 }}>mau ngapain lu kontol</p>
-            </div>
-          </div>,
-          document.body,
-        )}
     </section>
   );
 };
