@@ -47,6 +47,9 @@ const PROFANITY_WHOLE_WORD = [
   "ajig", "ajing", "anying", "anyink", "njing", "anjim",
 ];
 
+// The form answers this one with a pop-up (WishesSection) instead of the usual line under the button
+export const PROFANITY_ERROR = "Mohon gunakan kata-kata yang sopan dan baik.";
+
 const LEET: Record<string, string> = { "0": "o", "1": "i", "!": "i", "3": "e", "4": "a", "@": "a", "5": "s", $: "s", "7": "t", "8": "b", "9": "g" };
 
 // With `leet`, digits and symbols are read as letters ("4jig", "b!tch"); without, they are word breaks ("ajig!")
@@ -103,7 +106,7 @@ export const validateWish = ({ name, message, attendance, nameFromGuestList = fa
   if (URL_PATTERN.test(combined) || EMAIL_PATTERN.test(combined)) return "Ucapan tidak boleh berisi link atau email.";
   if (PHONE_PATTERN.test(combined)) return "Ucapan tidak boleh berisi nomor telepon.";
   if (SPAM_REPEAT_PATTERN.test(combined)) return "Ucapan tidak boleh berisi karakter berulang yang berlebihan.";
-  if (containsProfanity(combined)) return "Mohon gunakan kata-kata yang sopan dan baik.";
+  if (containsProfanity(combined)) return PROFANITY_ERROR;
 
   return null;
 };

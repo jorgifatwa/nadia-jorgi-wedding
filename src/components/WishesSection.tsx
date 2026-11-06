@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ClippedImage, MEDIA, canvasText, u } from "./canvasLayout";
 import { LottieSparkle } from "./LottieSparkle";
 import { useToast } from "./Toast";
-import { ATTENDANCE_OPTIONS, MESSAGE_MAX, NAME_MAX, attendanceLabel, validateWish, type Attendance } from "@/lib/wishValidation";
+import { ATTENDANCE_OPTIONS, MESSAGE_MAX, NAME_MAX, PROFANITY_ERROR, attendanceLabel, validateWish, type Attendance } from "@/lib/wishValidation";
 
 interface Wish {
   id: string;
@@ -113,6 +114,14 @@ export const WishesSection: React.FC = () => {
   const [newWishId, setNewWishId] = useState<string | null>(null);
   // Problems are shown under the form; a successful send is announced with a toast, like the copied account number
   const [error, setError] = useState<string | null>(null);
+  // A wish with rude words gets a joke pop-up instead of the polite line under the button
+  const [rude, setRude] = useState(false);
+  const reject = (problem: string) => {
+    if (problem === PROFANITY_ERROR) {
+      setError(null);
+      setRude(true);
+    } else setError(problem);
+  };
   const { showToast } = useToast();
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -175,7 +184,7 @@ export const WishesSection: React.FC = () => {
 
     const problem = validateWish({ name, message, attendance, nameFromGuestList: nameLocked });
     if (problem) {
-      setError(problem);
+      reject(problem);
       return;
     }
 
@@ -192,7 +201,7 @@ export const WishesSection: React.FC = () => {
       const data = (await res.json()) as { wish?: Wish; error?: string };
       await new Promise((resolve) => setTimeout(resolve, Math.max(0, MIN_LOADING_MS - (Date.now() - started))));
       if (!res.ok || !data.wish) {
-        setError(data.error ?? "Ucapan gagal dikirim, silakan coba lagi.");
+        reject(data.error ?? "Ucapan gagal dikirim, silakan coba lagi.");
         return;
       }
       const newWish = data.wish;
@@ -465,6 +474,22 @@ export const WishesSection: React.FC = () => {
         reveal="rise"
         parallax="floor"
       />
+
+      {rude &&
+        createPortal(
+          <div role="alertdialog" aria-modal="true" aria-label="Ucapan ditolak" className="checkin-pass-backdrop" onClick={() => setRude(false)}>
+            <div className="checkin-pass-card" onClick={(e) => e.stopPropagation()} style={{ fontFamily: BODY_FONT }}>
+              <button type="button" autoFocus onClick={() => setRude(false)} aria-label="Tutup" className="checkin-pass-close">
+                ✕
+              </button>
+              <p style={{ margin: "8px 0 4px", fontSize: 44, lineHeight: 1 }} aria-hidden="true">
+                🤨
+              </p>
+              <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 24, lineHeight: 1.3 }}>mau ngapain lu kontol</p>
+            </div>
+          </div>,
+          document.body,
+        )}
     </section>
   );
 };
