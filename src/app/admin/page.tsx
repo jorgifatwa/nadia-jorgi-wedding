@@ -1367,6 +1367,16 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<(typeof KIND_FILTERS)[number][0]>("all");
   const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number][0]>("all");
+  // Group invitations whose members are shown under them
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (id: string) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  // Everyone who took a QR from the group's link, whatever the filters (they are listed under the group by name)
+  const membersOf = (groupId: string) => rows.filter((row) => row.kind === "anggota" && row.guest.groupId === groupId);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1466,6 +1476,78 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
 
   const selectClass = "rounded-lg border border-[#d9d2c5] bg-white px-3 py-2 text-sm outline-none focus:border-[#24412f]";
 
+  // A table row; group members opened under their group invitation are indented
+  const renderRow = (row: GuestListRow, nested = false) => (
+    <tr key={row.guest.id} className={`align-top ${nested ? "bg-[#fbfaf6] hover:bg-[#f6f3ec]" : "hover:bg-[#fcfbf8]"}`}>
+      <td className={`py-3 pr-4 font-medium [overflow-wrap:anywhere] ${nested ? "pl-10" : "pl-4"}`}>
+        {nested && (
+          <span aria-hidden="true" className="mr-1.5 text-[#b3ab9c]">
+            ↳
+          </span>
+        )}
+        {row.guest.name}
+      </td>
+      <td className="px-4 py-3 text-[#3d463f] [overflow-wrap:anywhere]">
+        {row.origin}
+        {row.members &&
+          (row.members.total > 0 ? (
+            <button
+              type="button"
+              onClick={() => toggleGroup(row.guest.id)}
+              aria-expanded={openGroups.has(row.guest.id)}
+              className="mt-0.5 block text-xs font-medium text-[#24412f] underline-offset-4 hover:underline"
+            >
+              {openGroups.has(row.guest.id) ? "Sembunyikan anggota ▴" : `Lihat ${row.members.total} anggota ▾`}
+            </button>
+          ) : (
+            <div className="text-xs text-[#8a8374]">Belum ada anggota</div>
+          ))}
+      </td>
+      <td className="px-4 py-3 text-[#3d463f]">{row.guest.phone ? formatPhone(row.guest.phone) : <span className="text-[#b3ab9c]">-</span>}</td>
+      <td className="px-4 py-3">
+        {row.kind === "pribadi" || row.kind === "grup" ? (
+          row.guest.sentAt ? (
+            <span className="text-xs text-[#1f6b3a]">Terkirim {formatDate(row.guest.sentAt)}</span>
+          ) : (
+            <span className="rounded-full bg-[#fff4e0] px-2.5 py-0.5 text-xs font-medium text-[#8a5a12]">Belum dikirim</span>
+          )
+        ) : (
+          <span className="text-[#b3ab9c]">-</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        {row.attendance ? (
+          <>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                row.attendance === "hadir" ? "bg-[#e6f4ea] text-[#1f6b3a]" : "bg-[#f6eded] text-[#8a2a2a]"
+              }`}
+            >
+              {attendanceLabel(row.attendance)}
+            </span>
+            {row.rsvpFromWish && <div className="mt-1 text-xs text-[#8a8374]">dari ucapan</div>}
+          </>
+        ) : (
+          <span className="text-xs text-[#b3ab9c]">{row.kind === "grup" ? "-" : "Belum"}</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        {row.members ? (
+          <span className="text-xs text-[#3d463f]">{checkinText(row)}</span>
+        ) : row.guest.checkedInAt ? (
+          <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 text-xs font-medium text-[#1f6b3a]">{formatDate(row.guest.checkedInAt)}</span>
+        ) : (
+          <span className="text-xs text-[#b3ab9c]">Belum datang</span>
+        )}
+      </td>
+      <td className="px-4 py-3 text-right">
+        <Button variant="danger" onClick={() => remove(row)} className="px-2.5 py-1.5 text-xs">
+          Hapus
+        </Button>
+      </td>
+    </tr>
+  );
+
   return (
     <div>
       <div className="grid grid-cols-5 gap-4">
@@ -1546,55 +1628,10 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
           <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
             {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "w-24", "w-16", "w-20", "ml-auto w-14"]} />}
             {pagination.pageItems.map((row) => (
-              <tr key={row.guest.id} className="align-top hover:bg-[#fcfbf8]">
-                <td className="px-4 py-3 font-medium [overflow-wrap:anywhere]">{row.guest.name}</td>
-                <td className="px-4 py-3 text-[#3d463f] [overflow-wrap:anywhere]">
-                  {row.origin}
-                  {row.members && <div className="text-xs text-[#8a8374]">{row.members.total} anggota terdaftar</div>}
-                </td>
-                <td className="px-4 py-3 text-[#3d463f]">{row.guest.phone ? formatPhone(row.guest.phone) : <span className="text-[#b3ab9c]">-</span>}</td>
-                <td className="px-4 py-3">
-                  {row.kind === "pribadi" || row.kind === "grup" ? (
-                    row.guest.sentAt ? (
-                      <span className="text-xs text-[#1f6b3a]">Terkirim {formatDate(row.guest.sentAt)}</span>
-                    ) : (
-                      <span className="rounded-full bg-[#fff4e0] px-2.5 py-0.5 text-xs font-medium text-[#8a5a12]">Belum dikirim</span>
-                    )
-                  ) : (
-                    <span className="text-[#b3ab9c]">-</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  {row.attendance ? (
-                    <>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          row.attendance === "hadir" ? "bg-[#e6f4ea] text-[#1f6b3a]" : "bg-[#f6eded] text-[#8a2a2a]"
-                        }`}
-                      >
-                        {attendanceLabel(row.attendance)}
-                      </span>
-                      {row.rsvpFromWish && <div className="mt-1 text-xs text-[#8a8374]">dari ucapan</div>}
-                    </>
-                  ) : (
-                    <span className="text-xs text-[#b3ab9c]">{row.kind === "grup" ? "-" : "Belum"}</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  {row.members ? (
-                    <span className="text-xs text-[#3d463f]">{checkinText(row)}</span>
-                  ) : row.guest.checkedInAt ? (
-                    <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 text-xs font-medium text-[#1f6b3a]">{formatDate(row.guest.checkedInAt)}</span>
-                  ) : (
-                    <span className="text-xs text-[#b3ab9c]">Belum datang</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Button variant="danger" onClick={() => remove(row)} className="px-2.5 py-1.5 text-xs">
-                    Hapus
-                  </Button>
-                </td>
-              </tr>
+              <React.Fragment key={row.guest.id}>
+                {renderRow(row)}
+                {openGroups.has(row.guest.id) && membersOf(row.guest.id).map((member) => renderRow(member, true))}
+              </React.Fragment>
             ))}
             {loaded && !loading && visible.length === 0 && (
               <tr>
