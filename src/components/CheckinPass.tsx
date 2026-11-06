@@ -37,11 +37,15 @@ const forgetStoredPass = () => {
   } catch {}
 };
 
+const qrFileName = (pass: Pass) => `QR Check-in - ${pass.name}.png`;
+
 const passLink = (pass: Pass) => `${window.location.origin}/?to=${encodeURIComponent(pass.name)}&g=${pass.id}`;
 
 export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [pass, setPass] = useState<Pass | null>(null);
   const [qr, setQr] = useState<string | null>(null);
+  // The QR as a PNG file, ready before "Simpan QR" is tapped (the share sheet must open straight from the tap)
+  const [qrFile, setQrFile] = useState<File | null>(null);
   // "loading" while the link's guest is looked up, then the QR or the name form; "offline" when the lookup failed
   const [view, setView] = useState<"loading" | "form" | "pass" | "offline">("loading");
   // Bumped by "Coba lagi" to look the link up again
@@ -114,7 +118,10 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
         width: 640,
         color: { dark: "#14261b", light: "#fbf6ef" },
       });
-      if (!cancelled) setQr(url);
+      if (cancelled) return;
+      setQr(url);
+      const blob = await (await fetch(url)).blob();
+      if (!cancelled) setQrFile(new File([blob], qrFileName(pass), { type: "image/png" }));
     });
     return () => {
       cancelled = true;
@@ -142,6 +149,7 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
         // Private mode: the QR still works now, it just isn't remembered
       }
       setQr(null);
+      setQrFile(null);
       setPass(created);
       setView("pass");
     } catch (err) {
@@ -151,11 +159,32 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
     }
   };
 
+  // On a phone the share sheet saves straight to the photos ("Simpan Gambar" on iPhone, where a download would land in
+  // Files, and in-app browsers like WhatsApp's often can't download at all); elsewhere the link downloads the PNG
+  const saveQr = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!qr) {
+      e.preventDefault();
+      return;
+    }
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+    if (!touch || !qrFile || !navigator.canShare?.({ files: [qrFile] })) return;
+    e.preventDefault();
+    navigator.share({ files: [qrFile] }).catch((err: Error) => {
+      // Closing the sheet is not a failure; anything else falls back to the download
+      if (err.name === "AbortError" || !pass) return;
+      const download = document.createElement("a");
+      download.href = qr;
+      download.download = qrFileName(pass);
+      download.click();
+    });
+  };
+
   const redo = () => {
     forgetStoredPass();
     setName("");
     setPass(null);
     setQr(null);
+    setQrFile(null);
     setView("form");
   };
 
@@ -214,7 +243,7 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
         {view === "pass" && pass && (
           <>
             <p className="checkin-pass-name">{pass.name}</p>
-            <div className="checkin-pass-qr">
+            <div className="checkin-pass-qr" data-allow-save="">
               {qr ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={qr} alt={`QR check-in untuk ${pass.name}`} width={240} height={240} />
@@ -225,7 +254,8 @@ export const CheckinPassDialog: React.FC<{ onClose: () => void }> = ({ onClose }
             <p className="checkin-pass-note">Tunjukkan QR ini kepada penerima tamu saat tiba di lokasi acara.</p>
             <a
               href={qr ?? undefined}
-              download={`QR Check-in - ${pass.name}.png`}
+              download={qrFileName(pass)}
+              onClick={saveQr}
               aria-disabled={!qr}
               className="checkin-pass-button"
               style={{ display: "block", textDecoration: "none" }}

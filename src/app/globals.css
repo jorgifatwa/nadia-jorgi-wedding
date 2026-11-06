@@ -548,6 +548,11 @@ html {
   user-select: none;
 }
 
+/* Except the guest's check-in QR: long-press "Save to Photos" is a way to keep it (ContentGuard allows its menu too) */
+.content-guard [data-allow-save] img {
+  -webkit-touch-callout: default;
+}
+
 /* Envelope opening (EnvelopeLanding), on one clock from the tap: the seal cracks and falls apart (0-1000ms, see
    below), the closed flap folds up to edge-on (200-650ms), the velvet-lined open flap stands up from the hinge (650-1150ms), then the card rises while the
    envelope travels to its Section 1 place and Section 1's drapery fades in (1050-2300ms). The landing then fades out

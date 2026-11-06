@@ -5,13 +5,13 @@ import { useEffect } from "react";
 // Light deterrent against casual copying/inspecting on the invitation pages: no context menu, no image dragging and the
 // usual DevTools / view-source shortcuts are swallowed. It can't stop a determined visitor, and edits made in DevTools
 // only ever change that visitor's own screen; real protection is the server-side validation in the API routes.
-const isFormField = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest("input, textarea, select"));
+// Form fields keep their menu so guests can still paste into the wish form, and the check-in QR so it can be saved
+const keepsMenu = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest("input, textarea, select, [data-allow-save]"));
 
 export const ContentGuard: React.FC = () => {
   useEffect(() => {
-    // Form fields keep their menu so guests can still paste into the wish form
     const onContextMenu = (e: MouseEvent) => {
-      if (!isFormField(e.target)) e.preventDefault();
+      if (!keepsMenu(e.target)) e.preventDefault();
     };
     const onDragStart = (e: DragEvent) => {
       if (e.target instanceof HTMLImageElement) e.preventDefault();
