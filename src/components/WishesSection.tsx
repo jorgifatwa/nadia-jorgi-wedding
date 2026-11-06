@@ -22,6 +22,8 @@ const LABEL_FONT = "'QuattrocentoLocal', 'Quattrocento', serif";
 const REFRESH_MS = 30_000;
 // Keep the loading state visible long enough to read as feedback even when the server answers instantly
 const MIN_LOADING_MS = 700;
+// Off for now: "Kirim Ucapan" sends nothing and only shows the joke pop-up (set to true to accept wishes again)
+const WISHES_OPEN = false;
 
 const relativeTime = (iso: string) => {
   const seconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000);
@@ -113,8 +115,8 @@ export const WishesSection: React.FC = () => {
   const [newWishId, setNewWishId] = useState<string | null>(null);
   // Problems are shown under the form (a successful send gets the pop-up below)
   const [error, setError] = useState<string | null>(null);
-  // Joke pop-up, shown after every sent wish (instead of the thank-you toast) and for a wish with rude words (instead of
-  // the polite line under the button)
+  // Joke pop-up: on every "Kirim Ucapan" while WISHES_OPEN is off; otherwise after a sent wish (instead of the
+  // thank-you toast) and for a wish with rude words (instead of the polite line under the button)
   const [joke, setJoke] = useState(false);
   const reject = (problem: string) => {
     if (problem === PROFANITY_ERROR) {
@@ -180,6 +182,11 @@ export const WishesSection: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    if (!WISHES_OPEN) {
+      setError(null);
+      setJoke(true);
+      return;
+    }
 
     const problem = validateWish({ name, message, attendance, nameFromGuestList: nameLocked });
     if (problem) {
