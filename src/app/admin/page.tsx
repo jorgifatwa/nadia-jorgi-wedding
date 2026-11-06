@@ -19,6 +19,10 @@ interface Wish {
   createdAt: string;
 }
 
+// Newest entries on top. The sort is stable, so guests added together in one batch (same time) keep the order they
+// were typed in.
+const newestFirst = <T extends { createdAt: string }>(items: T[]) => [...items].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+
 const wishName = (wish: Wish) => (wish.group ? `${wish.group} - ${wish.name}` : wish.name);
 
 interface Guest {
@@ -636,7 +640,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     try {
       const data = await api<{ guests: Guest[] }>("/api/admin/guests", { method: "POST", body: JSON.stringify({ guests: entries }) });
       setGuests((prev) => [...prev, ...data.guests]);
-      pagination.setPage(Number.MAX_SAFE_INTEGER); // clamped to the last page, where the new guests are
+      pagination.setPage(1); // the new guests are on top
       setNotice({ kind: "success", text: `${data.guests.length} tamu ditambahkan.` });
       onDone();
     } catch (err) {
@@ -699,7 +703,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     const q = query.trim().toLowerCase();
     const digits = q.replace(/\D/g, "");
     const matchesQuery = (g: Guest) => !q || g.name.toLowerCase().includes(q) || (digits !== "" && (g.phone ?? "").includes(digits));
-    return guests.filter((g) => (statusFilter === "all" || (statusFilter === "sent" ? g.sentAt : !g.sentAt)) && matchesQuery(g));
+    return newestFirst(guests).filter((g) => (statusFilter === "all" || (statusFilter === "sent" ? g.sentAt : !g.sentAt)) && matchesQuery(g));
   }, [guests, query, statusFilter]);
   const pagination = usePagination(visible);
 
@@ -1350,7 +1354,7 @@ const buildGuestList = (guests: Guest[], wishes: Wish[]): GuestListRow[] => {
       }
       return { guest, kind, origin: sourceLabel(guest, groupNames), attendance, rsvpFromWish };
     })
-    .sort((a, b) => a.guest.name.localeCompare(b.guest.name, "id"));
+    .sort((a, b) => (b.guest.createdAt ?? "").localeCompare(a.guest.createdAt ?? ""));
 };
 
 const matchesStatus = (row: GuestListRow, status: (typeof STATUS_FILTERS)[number][0]) => {
@@ -1675,7 +1679,11 @@ const GuestListTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) =>
         <GuestFormModal
           editing={form.mode === "edit" ? form.guest : null}
           guests={guests}
-          onSaved={load}
+          onSaved={async () => {
+            await load();
+            // A new guest is on top of the first page
+            if (form.mode === "add") pagination.setPage(1);
+          }}
           onClose={() => setForm(null)}
           onAuthError={onAuthError}
         />
