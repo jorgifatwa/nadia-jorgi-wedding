@@ -14,6 +14,18 @@ export type GuestSource = "admin" | "self" | "desk";
 
 export const isGroupInvite = (guest: Pick<Guest, "phone" | "source">) => (guest.source ?? "admin") === "admin" && !guest.phone;
 
+// Name of the WhatsApp group behind each guest id that wishes can come from: a group invitation itself, and the
+// people who took a QR from it (their QR opens the invitation as them). Wishes show it before the name.
+export const groupNamesByGuest = (guests: Guest[]): Map<string, string> => {
+  const groups = new Map(guests.filter(isGroupInvite).map((guest) => [guest.id, guest.name]));
+  const names = new Map(groups);
+  for (const guest of guests) {
+    const group = guest.groupId && groups.get(guest.groupId);
+    if (group) names.set(guest.id, group);
+  }
+  return names;
+};
+
 export interface Guest {
   id: string;
   name: string;

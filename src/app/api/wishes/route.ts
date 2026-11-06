@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { getGuest, isGroupInvite, updateGuest } from "@/lib/guestsStore";
+import { getGuest, groupNamesByGuest, isGroupInvite, listGuests, updateGuest } from "@/lib/guestsStore";
 import { addWish, listWishes, type Wish } from "@/lib/wishesStore";
 import { clientIp, rateLimit } from "@/lib/db";
 import { cleanText, isAttendance, validateWish } from "@/lib/wishValidation";
@@ -8,13 +8,18 @@ import { withErrors } from "@/lib/apiHandler";
 // One submission per visitor every 20 seconds
 const RATE_LIMIT_SECONDS = 20;
 
-// The guest id works as the key of a personal invitation link, so it never leaves the server
-const publicWish = ({ id, name, message, attendance, createdAt }: Wish) => ({ id, name, message, attendance, createdAt });
+// The guest id works as the key of a personal invitation link, so it never leaves the server. A wish sent from a group
+// invitation's link shows as "Group - Name".
+const publicWish = ({ id, name, message, attendance, createdAt, guestId }: Wish, groupNames: Map<string, string>) => {
+  const group = guestId ? groupNames.get(guestId) : undefined;
+  return { id, name: group ? `${group} - ${name}` : name, message, attendance, createdAt };
+};
 
 export const GET = withErrors(async () => {
   await connection(); // always read the latest wishes at request time
-  const wishes = await listWishes();
-  return Response.json({ wishes: wishes.map(publicWish) });
+  const [wishes, guests] = await Promise.all([listWishes(), listGuests()]);
+  const groupNames = groupNamesByGuest(guests);
+  return Response.json({ wishes: wishes.map((wish) => publicWish(wish, groupNames)) });
 });
 
 export const POST = withErrors(async (request: Request) => {
@@ -54,5 +59,5 @@ export const POST = withErrors(async (request: Request) => {
   const wish = await addWish(cleanText(name), message.trim().replace(/\n{3,}/g, "\n\n"), attendance, guest?.id);
   // A group invitation's RSVP isn't one member's answer
   if (guest && !isGroupInvite(guest)) await updateGuest(guest.id, { attendance, respondedAt: wish.createdAt });
-  return Response.json({ wish: publicWish(wish) }, { status: 201 });
+  return Response.json({ wish: publicWish(wish, groupNamesByGuest(guest ? await listGuests() : [])) }, { status: 201 });
 });

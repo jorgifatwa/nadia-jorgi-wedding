@@ -425,9 +425,10 @@ export const WishesSection: React.FC = () => {
                       fontFamily: LABEL_FONT,
                       fontWeight: 700,
                       fontSize: u(14.5),
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      lineHeight: 1.3,
+                      minWidth: 0,
+                      // "Group - Name" from group links can be long: wrapped, so the guest's own name at the end shows
+                      overflowWrap: "anywhere",
                     }}
                   >
                     {wish.name}

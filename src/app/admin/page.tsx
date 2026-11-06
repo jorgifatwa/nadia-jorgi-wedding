@@ -14,8 +14,12 @@ interface Wish {
   attendance?: Attendance;
   // Guest list entry whose link it was sent from (personal or group invitation)
   guestId?: string;
+  // The WhatsApp group it was sent from; the invitation shows it as "Group - Name"
+  group?: string | null;
   createdAt: string;
 }
+
+const wishName = (wish: Wish) => (wish.group ? `${wish.group} - ${wish.name}` : wish.name);
 
 interface Guest {
   id: string;
@@ -429,7 +433,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       title: "Hapus ucapan?",
       message: (
         <>
-          Ucapan dari <span className="font-semibold text-[#1f2a22]">{wish.name}</span> akan dihapus permanen dan tidak tampil lagi
+          Ucapan dari <span className="font-semibold text-[#1f2a22]">{wishName(wish)}</span> akan dihapus permanen dan tidak tampil lagi
           di undangan.
         </>
       ),
@@ -450,7 +454,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
     const rows = [
       ["Nama", "Kehadiran", "Ucapan", "Waktu"],
-      ...wishes.map((w) => [w.name, w.attendance ? attendanceLabel(w.attendance) : "-", w.message, formatDate(w.createdAt)]),
+      ...wishes.map((w) => [wishName(w), w.attendance ? attendanceLabel(w.attendance) : "-", w.message, formatDate(w.createdAt)]),
     ];
     const blob = new Blob(["﻿" + rows.map((row) => row.map(escape).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
@@ -463,7 +467,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return wishes.filter(
-      (w) => (filter === "all" || w.attendance === filter) && (!q || w.name.toLowerCase().includes(q) || w.message.toLowerCase().includes(q)),
+      (w) => (filter === "all" || w.attendance === filter) && (!q || wishName(w).toLowerCase().includes(q) || w.message.toLowerCase().includes(q)),
     );
   }, [wishes, query, filter]);
   const pagination = usePagination(visible);
@@ -534,7 +538,7 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
             {!loaded && <SkeletonRows columns={["w-28", "w-16", "w-full", "w-28", "ml-auto w-14"]} />}
             {pagination.pageItems.map((wish) => (
               <tr key={wish.id} className="align-top hover:bg-[#fcfbf8]">
-                <td className="px-4 py-3 font-medium [overflow-wrap:anywhere]">{wish.name}</td>
+                <td className="px-4 py-3 font-medium [overflow-wrap:anywhere]">{wishName(wish)}</td>
                 <td className="px-4 py-3">
                   {wish.attendance ? (
                     <span
