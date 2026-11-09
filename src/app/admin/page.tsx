@@ -158,17 +158,60 @@ const CopyButton: React.FC<{ text: string | (() => string); label: string; class
 const forDiscord = (text: string) => text.replace(/\*([^*\n]+)\*/g, "**$1**");
 const forInstagram = (text: string) => text.replace(/\*([^*\n]+)\*/g, "$1");
 
+// Brand marks for the share menu, drawn inline (no external images)
+const DiscordLogo: React.FC<{ className?: string }> = ({ className = "h-5 w-5" }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+    <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.058a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.1.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+  </svg>
+);
+
+const InstagramLogo: React.FC<{ className?: string }> = ({ className = "h-5 w-5" }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="3" width="18" height="18" rx="5" />
+    <circle cx="12" cy="12" r="4.2" />
+    <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+const ShareIcon: React.FC<{ className?: string }> = ({ className = "h-3.5 w-3.5" }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={`shrink-0 ${className}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
+  </svg>
+);
+
 const SHARE_TARGETS = [
-  { key: "discord", label: "Discord", hint: "Salin pesan & buka Discord, lalu tempel di chat", url: "https://discord.com/channels/@me", format: forDiscord },
-  { key: "instagram", label: "Instagram", hint: "Salin pesan & buka DM Instagram, lalu tempel", url: "https://www.instagram.com/direct/inbox/", format: forInstagram },
+  {
+    key: "discord",
+    label: "Discord",
+    hint: "Salin pesan & buka Discord",
+    url: "https://discord.com/channels/@me",
+    format: forDiscord,
+    tile: "bg-[#5865F2] text-white",
+    Logo: DiscordLogo,
+  },
+  {
+    key: "instagram",
+    label: "Instagram",
+    hint: "Salin pesan & buka DM",
+    url: "https://www.instagram.com/direct/inbox/",
+    format: forInstagram,
+    tile: "bg-[radial-gradient(circle_at_30%_107%,#fdf497_0%,#fd5949_45%,#d6249f_60%,#285AEB_90%)] text-white",
+    Logo: InstagramLogo,
+  },
 ] as const;
+
+const MENU_W = 288;
+const MENU_H = 250;
 
 // "Bagikan" menu for apps without a link that fills in a message (Discord, Instagram): the message is copied, the
 // app opens in a new tab, and it is pasted into the chat there. "Lainnya" opens the device's share sheet when the
 // browser has one. The menu is drawn in a portal so the table's rounded clipping can't cut it off.
 const ShareMenu: React.FC<{ message: () => string; onShared?: () => void; className?: string }> = ({ message, onShared, className = "" }) => {
   const [open, setOpen] = useState<DOMRect | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{ ok: boolean; text: string } | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
@@ -188,8 +231,8 @@ const ShareMenu: React.FC<{ message: () => string; onShared?: () => void; classN
     };
   }, [open]);
 
-  const flash = (text: string) => {
-    setDone(text);
+  const flash = (ok: boolean, text: string) => {
+    setDone({ ok, text });
     clearTimeout(timer.current ?? undefined);
     timer.current = setTimeout(() => setDone(null), 4000);
   };
@@ -200,11 +243,11 @@ const ShareMenu: React.FC<{ message: () => string; onShared?: () => void; classN
       // Copied before the tab opens: the clipboard needs this page to still have focus
       await writeClipboard(target.format(message()));
     } catch {
-      flash("Gagal menyalin");
+      flash(false, "Gagal menyalin");
       return;
     }
     window.open(target.url, "_blank", "noopener");
-    flash("✓ Disalin");
+    flash(true, "✓ Disalin");
     onShared?.();
   };
 
@@ -218,6 +261,9 @@ const ShareMenu: React.FC<{ message: () => string; onShared?: () => void; classN
     }
   };
 
+  const below = open ? open.bottom + 8 + MENU_H <= window.innerHeight : true;
+  const item = "group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[#f6f3ee] focus-visible:bg-[#f6f3ee] focus-visible:outline-none";
+
   return (
     <>
       <Button
@@ -225,9 +271,16 @@ const ShareMenu: React.FC<{ message: () => string; onShared?: () => void; classN
         onClick={() => setOpen(open ? null : (buttonRef.current?.getBoundingClientRect() ?? null))}
         aria-haspopup="menu"
         aria-expanded={!!open}
-        className={`${className} ${done && !done.startsWith("Gagal") ? "!border-[#9fd0ae] !bg-[#e6f4ea] !text-[#1f6b3a]" : ""}`}
+        className={`${className} gap-1.5 ${done?.ok ? "!border-[#9fd0ae] !bg-[#e6f4ea] !text-[#1f6b3a]" : ""} ${done && !done.ok ? "!text-[#9b1c1c]" : ""} ${open ? "!bg-[#f3efe7]" : ""}`}
       >
-        {done ?? "Bagikan ▾"}
+        {done ? (
+          done.text
+        ) : (
+          <>
+            <ShareIcon />
+            Bagikan
+          </>
+        )}
       </Button>
       {open &&
         createPortal(
@@ -235,25 +288,44 @@ const ShareMenu: React.FC<{ message: () => string; onShared?: () => void; classN
             <div className="fixed inset-0 z-40" onClick={() => setOpen(null)} />
             <div
               role="menu"
-              className="fixed z-50 w-64 overflow-hidden rounded-xl border border-[#e5dfd3] bg-white py-1 text-sm shadow-[0_12px_32px_rgba(31,42,34,0.18)]"
+              aria-label="Bagikan undangan"
+              className="admin-modal-card fixed z-50 rounded-2xl border border-[#e5dfd3] bg-white p-2 text-sm shadow-[0_16px_40px_rgba(31,42,34,0.2)]"
               style={{
-                top: open.bottom + 6 + 150 > window.innerHeight ? undefined : open.bottom + 6,
-                bottom: open.bottom + 6 + 150 > window.innerHeight ? window.innerHeight - open.top + 6 : undefined,
-                left: Math.max(8, open.right - 256),
+                width: MENU_W,
+                top: below ? open.bottom + 8 : undefined,
+                bottom: below ? undefined : window.innerHeight - open.top + 8,
+                left: Math.min(window.innerWidth - MENU_W - 8, Math.max(8, open.right - MENU_W)),
               }}
             >
+              <div className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-[#8a8374]">Bagikan ke</div>
               {SHARE_TARGETS.map((target) => (
-                <button key={target.key} role="menuitem" type="button" onClick={() => shareTo(target)} className="block w-full px-4 py-2.5 text-left hover:bg-[#f6f3ee]">
-                  <span className="font-medium text-[#1f2a22]">{target.label}</span>
-                  <span className="block text-xs text-[#8a8374]">{target.hint}</span>
+                <button key={target.key} role="menuitem" type="button" onClick={() => shareTo(target)} className={item}>
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm ${target.tile}`}>
+                    <target.Logo className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium text-[#1f2a22]">{target.label}</span>
+                    <span className="block text-xs text-[#8a8374]">{target.hint}</span>
+                  </span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0 text-[#c4bcae] transition-colors group-hover:text-[#24412f]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 17 17 7M8 7h9v9" />
+                  </svg>
                 </button>
               ))}
               {canShare && (
-                <button role="menuitem" type="button" onClick={shareOther} className="block w-full px-4 py-2.5 text-left hover:bg-[#f6f3ee]">
-                  <span className="font-medium text-[#1f2a22]">Lainnya…</span>
-                  <span className="block text-xs text-[#8a8374]">Menu bagikan perangkat</span>
+                <button role="menuitem" type="button" onClick={shareOther} className={item}>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#efe9de] text-[#24412f]">
+                    <ShareIcon className="h-[17px] w-[17px]" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium text-[#1f2a22]">Lainnya</span>
+                    <span className="block text-xs text-[#8a8374]">Menu bagikan perangkat</span>
+                  </span>
                 </button>
               )}
+              <p className="mx-1 mt-1.5 rounded-lg bg-[#faf8f4] px-2.5 py-2 text-xs leading-relaxed text-[#6f6858]">
+                Setelah aplikasi terbuka, pilih chat lalu tempel pesannya (<kbd className="font-sans font-semibold">Ctrl/⌘ + V</kbd>).
+              </p>
             </div>
           </>,
           document.body,
