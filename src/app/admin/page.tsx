@@ -811,6 +811,186 @@ const WishesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   );
 };
 
+// WhatsApp-style preview: *bold* shown bold, as the guest will see it
+const WhatsAppText: React.FC<{ text: string }> = ({ text }) => (
+  <>
+    {text.split(/(\*[^*\n]+\*)/g).map((part, idx) =>
+      /^\*[^*\n]+\*$/.test(part) ? <strong key={idx}>{part.slice(1, -1)}</strong> : <React.Fragment key={idx}>{part}</React.Fragment>,
+    )}
+  </>
+);
+
+// Side panel with the message template next to its live preview for one guest (picked here or with the eye button on
+// a row), and the send / copy / share actions for that guest. Closing with unsaved edits asks first (InvitesTab).
+const TemplateDrawer: React.FC<{
+  template: string;
+  onTemplateChange: (template: string) => void;
+  dirty: boolean;
+  saving: boolean;
+  onSave: () => Promise<string | null>;
+  onRestoreDefault: () => void;
+  guests: Guest[];
+  previewGuest: Guest | undefined;
+  onPreviewGuest: (id: string) => void;
+  onSendWhatsApp: (guest: Guest) => void;
+  onShared: (guest: Guest) => void;
+  onClose: () => void;
+}> = ({ template, onTemplateChange, dirty, saving, onSave, onRestoreDefault, guests, previewGuest, onPreviewGuest, onSendWhatsApp, onShared, onClose }) => {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sample = previewGuest ?? { name: "Nama Tamu" };
+  const options = useMemo(() => newestFirst(guests), [guests]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // The "discard changes?" dialog handles its own Escape
+      if (e.key === "Escape" && !document.querySelector('[role="alertdialog"]')) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  useEffect(() => () => clearTimeout(savedTimer.current ?? undefined), []);
+
+  const save = async () => {
+    const problem = await onSave();
+    setSaveError(problem);
+    if (problem) return;
+    setSaved(true);
+    clearTimeout(savedTimer.current ?? undefined);
+    savedTimer.current = setTimeout(() => setSaved(false), 2000);
+  };
+
+  // Puts {nama} / {link} where the cursor is
+  const insert = (token: string) => {
+    const area = textareaRef.current;
+    if (!area) return onTemplateChange(template + token);
+    const { selectionStart: from, selectionEnd: to } = area;
+    onTemplateChange(template.slice(0, from) + token + template.slice(to));
+    requestAnimationFrame(() => {
+      area.focus();
+      area.setSelectionRange(from + token.length, from + token.length);
+    });
+  };
+
+  const missing = ["{nama}", "{link}"].filter((token) => !template.includes(token));
+
+  return (
+    <div className="admin-modal-backdrop fixed inset-0 z-40 flex justify-end bg-[#1f2a22]/35 backdrop-blur-[1px]" onClick={onClose}>
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="template-drawer-title"
+        onClick={(e) => e.stopPropagation()}
+        className="admin-drawer flex h-full w-[min(940px,100vw)] flex-col bg-[#f6f3ee] text-[#1f2a22] shadow-[-24px_0_60px_rgba(31,42,34,0.25)]"
+      >
+        <header className="flex items-center gap-3 border-b border-[#e5dfd3] bg-white px-6 py-4">
+          <div className="min-w-0 flex-1">
+            <h2 id="template-drawer-title" className="text-base font-semibold text-[#1f2a22]">
+              Template Pesan WhatsApp
+            </h2>
+            <p className="mt-0.5 text-xs text-[#8a8374]">Dipakai untuk Kirim WA, Salin Pesan, dan Bagikan ke Discord / Instagram.</p>
+          </div>
+          {dirty ? (
+            <span className="rounded-full bg-[#fbf3e3] px-2.5 py-1 text-xs font-medium text-[#8a5a0e]">Belum disimpan</span>
+          ) : saved ? (
+            <span className="rounded-full bg-[#e6f4ea] px-2.5 py-1 text-xs font-medium text-[#1f6b3a]">✓ Tersimpan</span>
+          ) : null}
+          <button type="button" onClick={onClose} aria-label="Tutup" className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-[#5c645d] hover:bg-[#f3efe7]">
+            ✕
+          </button>
+        </header>
+
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-5 overflow-y-auto p-6">
+          {/* Editor */}
+          <section className="flex min-h-0 flex-col rounded-xl border border-[#e5dfd3] bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-[#1f2a22]">Isi pesan</h3>
+              <div className="flex gap-1.5">
+                {["{nama}", "{link}"].map((token) => (
+                  <button
+                    key={token}
+                    type="button"
+                    onClick={() => insert(token)}
+                    title={`Sisipkan ${token} di posisi kursor`}
+                    className="rounded-md border border-[#d9d2c5] bg-[#faf8f4] px-2 py-1 font-mono text-xs text-[#24412f] hover:bg-[#f3efe7]"
+                  >
+                    + {token}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-[#8a8374]">
+              <code className="font-mono">{"{nama}"}</code> diganti nama tamu, <code className="font-mono">{"{link}"}</code> diganti link
+              undangannya. Teks di antara *bintang* jadi tebal.
+            </p>
+            <textarea
+              ref={textareaRef}
+              value={template}
+              onChange={(e) => onTemplateChange(e.target.value)}
+              className="mt-3 min-h-[360px] w-full flex-1 resize-none rounded-lg border border-[#d9d2c5] px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-[#24412f]"
+            />
+            {saveError && <p className="mt-2 rounded-lg bg-[#fdf1f1] px-3 py-2 text-xs text-[#9b1c1c]">Gagal menyimpan: {saveError}</p>}
+            {missing.length > 0 && (
+              <p className="mt-2 rounded-lg bg-[#fbf3e3] px-3 py-2 text-xs text-[#8a5a0e]">
+                Template belum memuat {missing.join(" dan ")}
+                {missing.includes("{link}") ? ": tamu tidak akan mendapat link undangannya." : "."}
+              </p>
+            )}
+            <div className="mt-3 flex gap-2">
+              <Button variant="primary" onClick={save} disabled={!dirty || saving}>
+                {saving && <Spinner />}
+                {saving ? "Menyimpan..." : "Simpan Template"}
+              </Button>
+              <Button onClick={onRestoreDefault}>Kembalikan Default</Button>
+            </div>
+          </section>
+
+          {/* Preview */}
+          <section className="flex min-h-0 flex-col rounded-xl border border-[#e5dfd3] bg-[#e9e3d6] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-[#1f2a22]">Pratinjau</h3>
+              {options.length > 0 && (
+                <label className="flex min-w-0 items-center gap-2 text-xs text-[#6f6858]">
+                  untuk
+                  <select
+                    value={previewGuest?.id ?? ""}
+                    onChange={(e) => onPreviewGuest(e.target.value)}
+                    className="max-w-[220px] truncate rounded-lg border border-[#d9d2c5] bg-white px-2 py-1.5 text-xs text-[#1f2a22] outline-none focus:border-[#24412f]"
+                  >
+                    {options.map((guest) => (
+                      <option key={guest.id} value={guest.id}>
+                        {guest.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+            <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl bg-[#efe7dc] p-3">
+              <div className="ml-auto max-w-[92%] whitespace-pre-wrap break-words rounded-xl rounded-tr-sm bg-[#dcf8c6] px-3 py-2.5 text-sm leading-relaxed text-[#1f2a22] shadow-sm">
+                <WhatsAppText text={renderMessage(template, sample)} />
+              </div>
+            </div>
+            {previewGuest ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="whatsapp" onClick={() => onSendWhatsApp(previewGuest)}>
+                  Kirim WA
+                </Button>
+                <CopyButton text={() => renderMessage(template, previewGuest)} label="Salin Pesan" className="w-[118px]" />
+                <ShareMenu message={() => renderMessage(template, previewGuest)} onShared={() => onShared(previewGuest)} className="w-[118px]" />
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-[#6f6858]">Tambahkan tamu untuk mengirim pesan dari sini.</p>
+            )}
+          </section>
+        </div>
+      </aside>
+    </div>
+  );
+};
+
 const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   const confirm = useConfirm();
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -830,6 +1010,10 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "sent" | "unsent">("all");
   const [previewId, setPreviewId] = useState<string | null>(null);
+  // The message template and its preview live in a side panel, so the guest list gets the full width
+  const [templateOpen, setTemplateOpen] = useState(false);
+  // The template as last saved, to throw away unsaved edits when the panel is closed
+  const [savedTemplate, setSavedTemplate] = useState("");
 
   const handleError = useCallback(
     (err: unknown) => {
@@ -849,6 +1033,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       // Guests who took a QR from a group link or were added at the desk were never sent an invitation: Check-in tab
       setGuests(guestData.guests.filter((guest) => (guest.source ?? "admin") === "admin"));
       setSettings(settingsData.settings);
+      setSavedTemplate(settingsData.settings.template);
       setDefaultTemplate(settingsData.defaultTemplate);
       setSettingsDirty(false);
     } catch (err) {
@@ -886,16 +1071,20 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     }
   };
 
-  const saveSettings = async () => {
-    if (saving) return;
+  // Null when saved, else the error; a failure is reported by the caller (the template panel covers the page notice)
+  const saveSettings = async (): Promise<string | null> => {
+    if (saving) return "Masih menyimpan, tunggu sebentar.";
     setSaving("template");
     try {
       const data = await api<{ settings: InviteSettings }>("/api/admin/settings", { method: "PUT", body: JSON.stringify(settings) });
       setSettings(data.settings);
+      setSavedTemplate(data.settings.template);
       setSettingsDirty(false);
       setNotice({ kind: "success", text: "Template pesan disimpan." });
+      return null;
     } catch (err) {
       handleError(err);
+      return (err as Error).message;
     } finally {
       setSaving(null);
     }
@@ -959,6 +1148,30 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       },
     });
 
+  const openTemplate = (guest?: Guest) => {
+    if (guest) setPreviewId(guest.id);
+    setTemplateOpen(true);
+  };
+
+  // Unsaved edits are only thrown away after asking
+  const closeTemplate = () => {
+    if (!settingsDirty) {
+      setTemplateOpen(false);
+      return;
+    }
+    confirm({
+      title: "Buang perubahan template?",
+      message: "Perubahan pada template pesan belum disimpan. Jika ditutup sekarang, template kembali ke versi terakhir yang disimpan.",
+      confirmLabel: "Buang Perubahan",
+      busyLabel: "Menutup...",
+      action: async () => {
+        setSettings((current) => ({ ...current, template: savedTemplate }));
+        setSettingsDirty(false);
+        setTemplateOpen(false);
+      },
+    });
+  };
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const digits = q.replace(/\D/g, "");
@@ -968,7 +1181,6 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   const pagination = usePagination(visible);
 
   const previewGuest = guests.find((g) => g.id === previewId) ?? guests[0];
-  const previewName = previewGuest?.name ?? "Nama Tamu";
   const sentCount = guests.filter((g) => g.sentAt).length;
 
   return (
@@ -992,8 +1204,8 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-[1fr_420px] gap-6">
-        {/* Guest list */}
+      <div className="mt-6">
+        {/* Guest list (full width; the message template opens in a side panel) */}
         <div>
           <div className="rounded-xl border border-[#e5dfd3] bg-white p-5">
             <h2 className="text-base font-semibold text-[#1f2a22]">Tambah Tamu</h2>
@@ -1070,7 +1282,14 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               <option value="unsent">Belum dikirim</option>
               <option value="sent">Sudah dikirim</option>
             </select>
-            <Button variant="danger" onClick={resetAllSentStatus} disabled={!loaded || sentCount === 0} className="ml-auto">
+            <Button onClick={() => openTemplate()} disabled={!loaded} className="ml-auto">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+              Template Pesan
+              {settingsDirty && <span className="h-2 w-2 rounded-full bg-[#d97706]" title="Ada perubahan yang belum disimpan" />}
+            </Button>
+            <Button variant="danger" onClick={resetAllSentStatus} disabled={!loaded || sentCount === 0}>
               Reset Semua Status
             </Button>
             <Button onClick={load} disabled={loading}>
@@ -1087,17 +1306,13 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                   <th className="px-4 py-3 font-medium">Nama</th>
                   <th className="w-44 px-4 py-3 font-medium">WhatsApp</th>
                   <th className="w-40 px-4 py-3 font-medium">Status</th>
-                  <th className="w-[212px] px-4 py-3" />
+                  <th className="w-[430px] px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
-                {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "ml-auto w-44"]} />}
+                {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "ml-auto w-80"]} />}
                 {pagination.pageItems.map((guest) => (
-                  <tr
-                    key={guest.id}
-                    onClick={() => setPreviewId(guest.id)}
-                    className={`cursor-pointer ${previewGuest?.id === guest.id ? "bg-[#f5f1e8]" : "hover:bg-[#fcfbf8]"}`}
-                  >
+                  <tr key={guest.id} className={templateOpen && previewGuest?.id === guest.id ? "bg-[#f5f1e8]" : "hover:bg-[#fcfbf8]"}>
                     <td className="px-4 py-3 font-medium [overflow-wrap:anywhere]">{guest.name}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-[#3d463f]">{guest.phone ? formatPhone(guest.phone) : <span className="text-[#b3ab9c]">Pilih saat kirim</span>}</td>
                     <td className="px-4 py-3">
@@ -1136,16 +1351,22 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="ml-auto grid w-[180px] grid-cols-2 gap-1.5">
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1.5">
+                        <Button onClick={() => openTemplate(guest)} title={`Pratinjau pesan untuk ${guest.name}`} aria-label={`Pratinjau pesan untuk ${guest.name}`} className="px-2 py-1.5 text-xs">
+                          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </Button>
                         <Button variant="whatsapp" onClick={() => sendWhatsApp(guest)} className="px-2 py-1.5 text-xs">
                           Kirim WA
                         </Button>
-                        <CopyButton text={inviteLink(guest)} label="Salin Link" className="px-2 py-1.5 text-xs" />
+                        <CopyButton text={inviteLink(guest)} label="Salin Link" className="w-[82px] px-2 py-1.5 text-xs" />
                         <ShareMenu
                           message={() => renderMessage(settings.template, guest)}
                           onShared={() => !guest.sentAt && setSent(guest, true)}
-                          className="px-2 py-1.5 text-xs"
+                          className="w-[86px] px-2 py-1.5 text-xs"
                         />
                         <Button variant="danger" onClick={() => remove(guest)} className="px-2 py-1.5 text-xs">
                           Hapus
@@ -1166,77 +1387,30 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
             {loaded && <Pagination {...pagination} />}
           </div>
         </div>
-
-        {/* Message template and preview */}
-        <div className="flex flex-col gap-4">
-          <div className="rounded-xl border border-[#e5dfd3] bg-white p-5">
-            <h2 className="text-base font-semibold text-[#1f2a22]">Template Pesan WhatsApp</h2>
-            <p className="mt-1 text-xs text-[#8a8374]">
-              Gunakan <code className="font-mono">{"{nama}"}</code> untuk nama tamu dan <code className="font-mono">{"{link}"}</code> untuk link
-              undangan personal. Teks di antara *bintang* akan tebal di WhatsApp.
-            </p>
-            {loaded ? (
-              <textarea
-                value={settings.template}
-                onChange={(e) => {
-                  setSettings((s) => ({ ...s, template: e.target.value }));
-                  setSettingsDirty(true);
-                }}
-                rows={14}
-                className="mt-4 w-full rounded-lg border border-[#d9d2c5] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[#24412f]"
-              />
-            ) : (
-              <div className="mt-4 flex h-[322px] flex-col gap-3 rounded-lg border border-[#d9d2c5] p-3" aria-label="Memuat template">
-                {["w-3/4", "w-1/3", "w-1/2", "w-full", "w-5/6", "w-2/3", "w-full", "w-1/2"].map((width, idx) => (
-                  <SkeletonBar key={idx} className={`h-3.5 ${width}`} />
-                ))}
-              </div>
-            )}
-            <div className="mt-2 flex gap-2">
-              <Button variant="primary" onClick={saveSettings} disabled={!settingsDirty || saving !== null}>
-                {saving === "template" && <Spinner />}
-                {saving === "template" ? "Menyimpan..." : "Simpan Template"}
-              </Button>
-              <Button
-                disabled={!loaded}
-                onClick={() => {
-                  setSettings((s) => ({ ...s, template: defaultTemplate }));
-                  setSettingsDirty(true);
-                }}
-              >
-                Kembalikan Default
-              </Button>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-[#e5dfd3] bg-[#e9e3d6] p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-[#1f2a22]">Pratinjau</h2>
-              <span className="text-xs text-[#6f6858]">untuk: {previewName}</span>
-            </div>
-            <div className="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-[#dcf8c6] p-3 text-sm text-[#1f2a22] shadow-sm">
-              {loaded ? (
-                renderMessage(settings.template, previewGuest ?? { name: previewName })
-              ) : (
-                <div className="flex flex-col gap-2.5 py-1">
-                  {["w-2/3", "w-1/3", "w-full", "w-5/6", "w-1/2"].map((width, idx) => (
-                    <SkeletonBar key={idx} className={`h-3.5 bg-[#c5e8ab] ${width}`} />
-                  ))}
-                </div>
-              )}
-            </div>
-            {previewGuest && (
-              <div className="mt-3 flex gap-2">
-                <Button variant="whatsapp" onClick={() => sendWhatsApp(previewGuest)}>
-                  Kirim ke {previewGuest.name.split(" ")[0]}
-                </Button>
-                <CopyButton text={() => renderMessage(settings.template, previewGuest)} label="Salin Pesan" className="w-[118px]" />
-                <ShareMenu message={() => renderMessage(settings.template, previewGuest)} onShared={() => !previewGuest.sentAt && setSent(previewGuest, true)} className="w-[118px]" />
-              </div>
-            )}
-          </div>
-        </div>
       </div>
+
+      {templateOpen && (
+        <TemplateDrawer
+          template={settings.template}
+          onTemplateChange={(template) => {
+            setSettings((current) => ({ ...current, template }));
+            setSettingsDirty(true);
+          }}
+          dirty={settingsDirty}
+          saving={saving === "template"}
+          onSave={saveSettings}
+          onRestoreDefault={() => {
+            setSettings((current) => ({ ...current, template: defaultTemplate }));
+            setSettingsDirty(true);
+          }}
+          guests={guests}
+          previewGuest={previewGuest}
+          onPreviewGuest={setPreviewId}
+          onSendWhatsApp={sendWhatsApp}
+          onShared={(guest) => !guest.sentAt && setSent(guest, true)}
+          onClose={closeTemplate}
+        />
+      )}
     </div>
   );
 };
