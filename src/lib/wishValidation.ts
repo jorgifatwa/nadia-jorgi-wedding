@@ -73,9 +73,16 @@ export const containsProfanity = (text: string): boolean => {
 
 const URL_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|id|co|io|xyz|info|biz|me|link|site|online)\b)/i;
 const EMAIL_PATTERN = /[^\s@]+@[^\s@]+\.[^\s@]+/;
-const PHONE_PATTERN = /(\+?\d[\d\s-]{8,}\d)/;
-const SPAM_REPEAT_PATTERN = /(.)\1{5,}/;
-const NAME_CHARS_PATTERN = /^[\p{L}\p{M}0-9 .,'&-]+$/u;
+// A phone number: 10+ digits (separators allowed) starting like an Indonesian number (0 / 62 / +62 / 8). Dates such
+// as 05-12-2026 have fewer digits and pass.
+const PHONE_PATTERN = /(?:\+?62|0|\b8)[\d\s.-]{8,}\d/;
+const isPhoneNumber = (text: string) => (text.match(new RegExp(PHONE_PATTERN, "g")) ?? []).some((run) => run.replace(/\D/g, "").length >= 10);
+// Only real spam: one character held down for a long run. Excited writing ("Aamiiiiiin", "!!!!!!", "......",
+// "SELAMAAAAAT") is normal in wishes and passes.
+const SPAM_REPEAT_PATTERN = /(.)\1{14,}/u;
+// Names may hold emoji, brackets and slashes ("Tante Rina (Bandung)", "Andi 💕", "Sri / Keluarga"); only characters
+// used in code or markup are refused
+const NAME_BLOCKED_PATTERN = /[<>{}[\]\\|^*=+_~`$#%]/;
 const HAS_LETTER_PATTERN = /\p{L}/u;
 
 export const cleanText = (text: string) => text.replace(/\s+/g, " ").trim();
@@ -88,9 +95,8 @@ export const validateWish = ({ name, message, attendance, nameFromGuestList = fa
   if (!nameFromGuestList) {
     if (cleanName.length < NAME_MIN) return "Nama wajib diisi (minimal 2 huruf).";
     if (cleanName.length > NAME_MAX) return `Nama maksimal ${NAME_MAX} karakter.`;
-    if (!HAS_LETTER_PATTERN.test(cleanName) || !NAME_CHARS_PATTERN.test(cleanName)) {
-      return "Nama hanya boleh berisi huruf, angka, spasi, dan tanda baca sederhana.";
-    }
+    if (!HAS_LETTER_PATTERN.test(cleanName)) return "Nama harus berisi huruf.";
+    if (NAME_BLOCKED_PATTERN.test(cleanName)) return "Nama tidak boleh berisi simbol seperti < > { } [ ] * # $.";
   }
 
   if (!isAttendance(attendance)) return "Pilih konfirmasi kehadiran Anda (Hadir / Tidak Hadir).";
@@ -101,7 +107,7 @@ export const validateWish = ({ name, message, attendance, nameFromGuestList = fa
 
   const combined = nameFromGuestList ? cleanMessage : `${cleanName} ${cleanMessage}`;
   if (URL_PATTERN.test(combined) || EMAIL_PATTERN.test(combined)) return "Ucapan tidak boleh berisi link atau email.";
-  if (PHONE_PATTERN.test(combined)) return "Ucapan tidak boleh berisi nomor telepon.";
+  if (isPhoneNumber(combined)) return "Ucapan tidak boleh berisi nomor telepon.";
   if (SPAM_REPEAT_PATTERN.test(combined)) return "Ucapan tidak boleh berisi karakter berulang yang berlebihan.";
   if (containsProfanity(combined)) return "Mohon gunakan kata-kata yang sopan dan baik.";
 

@@ -5,8 +5,10 @@ import { clientIp, rateLimit } from "@/lib/db";
 import { cleanText, isAttendance, validateWish } from "@/lib/wishValidation";
 import { withErrors } from "@/lib/apiHandler";
 
-// One submission per visitor every 20 seconds
+// Against flooding, without blocking real guests: phones on Indonesian mobile networks often share one public IP, so
+// the IP alone allows a generous number of wishes per minute; the same name from that IP waits 20 seconds (double taps)
 const RATE_LIMIT_SECONDS = 20;
+const IP_LIMIT_PER_MINUTE = 12;
 
 // The guest id works as the key of a personal invitation link, so it never leaves the server. A wish sent from a group
 // invitation's link shows as "Group - Name".
@@ -52,7 +54,11 @@ export const POST = withErrors(async (request: Request) => {
     return Response.json({ error: error ?? "Konfirmasi kehadiran tidak valid." }, { status: 400 });
   }
 
-  if (!(await rateLimit(`wish:${clientIp(request)}`, 1, RATE_LIMIT_SECONDS))) {
+  const ip = clientIp(request);
+  if (
+    !(await rateLimit(`wish:${ip}:${cleanText(name).toLowerCase()}`, 1, RATE_LIMIT_SECONDS)) ||
+    !(await rateLimit(`wish:${ip}`, IP_LIMIT_PER_MINUTE, 60))
+  ) {
     return Response.json({ error: "Tunggu sebentar sebelum mengirim ucapan lagi." }, { status: 429 });
   }
 

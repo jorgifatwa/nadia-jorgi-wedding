@@ -178,13 +178,22 @@ export const WishesSection: React.FC = () => {
     };
   }, []);
 
+  // A wish that wasn't sent must never look like nothing happened: a toast at the top of the screen (the message under
+  // the button can sit behind the phone's keyboard) plus the message under the button, scrolled into view
+  const errorRef = useRef<HTMLDivElement | null>(null);
+  const fail = (problem: string) => {
+    setError(problem);
+    showToast(problem, "error");
+    requestAnimationFrame(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
 
     const problem = validateWish({ name, message, attendance, nameFromGuestList: nameLocked });
     if (problem) {
-      setError(problem);
+      fail(problem);
       return;
     }
 
@@ -201,7 +210,7 @@ export const WishesSection: React.FC = () => {
       const data = (await res.json()) as { wish?: Wish; error?: string };
       await new Promise((resolve) => setTimeout(resolve, Math.max(0, MIN_LOADING_MS - (Date.now() - started))));
       if (!res.ok || !data.wish) {
-        setError(data.error ?? "Ucapan gagal dikirim, silakan coba lagi.");
+        fail(data.error ?? "Ucapan gagal dikirim, silakan coba lagi.");
         return;
       }
       const newWish = data.wish;
@@ -213,7 +222,7 @@ export const WishesSection: React.FC = () => {
       if (attendance === "hadir") setPassFor(name.trim());
       else showToast("Terima kasih, ucapan Anda sudah terkirim!");
     } catch {
-      setError("Koneksi bermasalah, silakan coba lagi.");
+      fail("Koneksi bermasalah, ucapan belum terkirim. Silakan coba lagi.");
     } finally {
       setSubmitting(false);
     }
@@ -363,6 +372,7 @@ export const WishesSection: React.FC = () => {
             {submitting ? "Mengirim..." : "Kirim Ucapan"}
           </button>
           <div
+            ref={errorRef}
             role="alert"
             aria-live="polite"
             style={{
@@ -370,10 +380,19 @@ export const WishesSection: React.FC = () => {
               textAlign: "center",
               fontFamily: BODY_FONT,
               fontSize: u(15),
-              color: "#ffd2c8",
+              lineHeight: 1.35,
+              color: "#ffe4dc",
+              ...(error
+                ? {
+                    padding: `${u(8)} ${u(12)}`,
+                    borderRadius: u(8),
+                    backgroundColor: "rgba(120, 20, 20, 0.55)",
+                    border: "1px solid rgba(255, 180, 162, 0.55)",
+                  }
+                : {}),
             }}
           >
-            {error}
+            {error && `Ucapan belum terkirim: ${error}`}
           </div>
         </form>
 
