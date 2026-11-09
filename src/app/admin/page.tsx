@@ -594,6 +594,9 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [bulk, setBulk] = useState("");
+  // Which save is running (the single "Tambah" form, the bulk import, the message template): spinner on its button,
+  // and no second click while it runs
+  const [saving, setSaving] = useState<"single" | "bulk" | "template" | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "sent" | "unsent">("all");
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -631,12 +634,15 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     return () => clearTimeout(initial);
   }, [load]);
 
-  const addEntries = async (entries: { name: string; phone: string }[], onDone: () => void) => {
+  const addEntries = async (entries: { name: string; phone: string }[], kind: "single" | "bulk", onDone: () => void) => {
+    if (saving) return;
     const invalid = entries.find((entry) => entry.phone && !normalizePhone(entry.phone));
     if (invalid) {
       setNotice({ kind: "error", text: `Nomor WhatsApp untuk "${invalid.name}" tidak valid.` });
       return;
     }
+    setSaving(kind);
+    setNotice(null);
     try {
       const data = await api<{ guests: Guest[] }>("/api/admin/guests", { method: "POST", body: JSON.stringify({ guests: entries }) });
       setGuests((prev) => [...prev, ...data.guests]);
@@ -645,10 +651,14 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       onDone();
     } catch (err) {
       handleError(err);
+    } finally {
+      setSaving(null);
     }
   };
 
   const saveSettings = async () => {
+    if (saving) return;
+    setSaving("template");
     try {
       const data = await api<{ settings: InviteSettings }>("/api/admin/settings", { method: "PUT", body: JSON.stringify(settings) });
       setSettings(data.settings);
@@ -656,6 +666,8 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
       setNotice({ kind: "success", text: "Template pesan disimpan." });
     } catch (err) {
       handleError(err);
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -740,7 +752,7 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                addEntries([{ name, phone }], () => {
+                addEntries([{ name, phone }], "single", () => {
                   setName("");
                   setPhone("");
                 });
@@ -759,8 +771,9 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                 placeholder="No. WhatsApp (opsional)"
                 className="w-56 rounded-lg border border-[#d9d2c5] px-3 py-2 text-sm outline-none focus:border-[#24412f]"
               />
-              <Button type="submit" variant="primary" disabled={name.trim().length < 2}>
-                Tambah
+              <Button type="submit" variant="primary" disabled={name.trim().length < 2 || saving !== null} className="w-[136px]">
+                {saving === "single" && <Spinner />}
+                {saving === "single" ? "Menambah..." : "Tambah"}
               </Button>
             </form>
             <details className="mt-4">
@@ -778,10 +791,11 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               <Button
                 className="mt-2"
                 variant="primary"
-                disabled={!bulk.trim()}
-                onClick={() => addEntries(parseBulk(bulk), () => setBulk(""))}
+                disabled={!bulk.trim() || saving !== null}
+                onClick={() => addEntries(parseBulk(bulk), "bulk", () => setBulk(""))}
               >
-                Impor {parseBulk(bulk).length || ""} Tamu
+                {saving === "bulk" && <Spinner />}
+                {saving === "bulk" ? `Mengimpor ${parseBulk(bulk).length} tamu...` : `Impor ${parseBulk(bulk).length || ""} Tamu`}
               </Button>
             </details>
           </div>
@@ -919,8 +933,9 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               </div>
             )}
             <div className="mt-2 flex gap-2">
-              <Button variant="primary" onClick={saveSettings} disabled={!settingsDirty}>
-                Simpan Template
+              <Button variant="primary" onClick={saveSettings} disabled={!settingsDirty || saving !== null}>
+                {saving === "template" && <Spinner />}
+                {saving === "template" ? "Menyimpan..." : "Simpan Template"}
               </Button>
               <Button
                 disabled={!loaded}
