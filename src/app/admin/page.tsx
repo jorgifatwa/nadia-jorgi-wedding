@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { attendanceLabel, type Attendance } from "@/lib/wishValidation";
 import { formatPhone, normalizePhone } from "@/lib/phone";
@@ -101,6 +102,163 @@ const Button: React.FC<
       {...props}
       className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${styles} ${className}`}
     />
+  );
+};
+
+// Clipboard with a fallback for browsers / contexts where the async clipboard API is missing or refused
+const writeClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    if (!ok) throw new Error("Gagal menyalin, salin manual.");
+  }
+};
+
+// A copy button that answers on itself: "✓ Disalin" for a moment (the page notice may be scrolled out of view)
+const CopyButton: React.FC<{ text: string | (() => string); label: string; className?: string; variant?: "primary" | "secondary" }> = ({
+  text,
+  label,
+  className = "",
+  variant,
+}) => {
+  const [state, setState] = useState<"idle" | "done" | "error">("idle");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => clearTimeout(timer.current ?? undefined), []);
+  const copy = async () => {
+    try {
+      await writeClipboard(typeof text === "function" ? text() : text);
+      setState("done");
+    } catch {
+      setState("error");
+    }
+    clearTimeout(timer.current ?? undefined);
+    timer.current = setTimeout(() => setState("idle"), 2000);
+  };
+  return (
+    <Button
+      onClick={copy}
+      variant={variant}
+      aria-live="polite"
+      className={`${className} ${state === "done" ? "!border-[#9fd0ae] !bg-[#e6f4ea] !text-[#1f6b3a]" : ""} ${state === "error" ? "!text-[#9b1c1c]" : ""}`}
+    >
+      {state === "done" ? "✓ Disalin" : state === "error" ? "Gagal menyalin" : label}
+    </Button>
+  );
+};
+
+// WhatsApp's *bold* in the other apps: Discord writes it **bold**, Instagram has no formatting
+const forDiscord = (text: string) => text.replace(/\*([^*\n]+)\*/g, "**$1**");
+const forInstagram = (text: string) => text.replace(/\*([^*\n]+)\*/g, "$1");
+
+const SHARE_TARGETS = [
+  { key: "discord", label: "Discord", hint: "Salin pesan & buka Discord, lalu tempel di chat", url: "https://discord.com/channels/@me", format: forDiscord },
+  { key: "instagram", label: "Instagram", hint: "Salin pesan & buka DM Instagram, lalu tempel", url: "https://www.instagram.com/direct/inbox/", format: forInstagram },
+] as const;
+
+// "Bagikan" menu for apps without a link that fills in a message (Discord, Instagram): the message is copied, the
+// app opens in a new tab, and it is pasted into the chat there. "Lainnya" opens the device's share sheet when the
+// browser has one. The menu is drawn in a portal so the table's rounded clipping can't cut it off.
+const ShareMenu: React.FC<{ message: () => string; onShared?: () => void; className?: string }> = ({ message, onShared, className = "" }) => {
+  const [open, setOpen] = useState<DOMRect | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  useEffect(() => () => clearTimeout(timer.current ?? undefined), []);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(null);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  const flash = (text: string) => {
+    setDone(text);
+    clearTimeout(timer.current ?? undefined);
+    timer.current = setTimeout(() => setDone(null), 4000);
+  };
+
+  const shareTo = async (target: (typeof SHARE_TARGETS)[number]) => {
+    setOpen(null);
+    try {
+      // Copied before the tab opens: the clipboard needs this page to still have focus
+      await writeClipboard(target.format(message()));
+    } catch {
+      flash("Gagal menyalin");
+      return;
+    }
+    window.open(target.url, "_blank", "noopener");
+    flash("✓ Disalin");
+    onShared?.();
+  };
+
+  const shareOther = async () => {
+    setOpen(null);
+    try {
+      await navigator.share({ text: forInstagram(message()) });
+      onShared?.();
+    } catch {
+      // Closed the sheet
+    }
+  };
+
+  return (
+    <>
+      <Button
+        ref={buttonRef}
+        onClick={() => setOpen(open ? null : (buttonRef.current?.getBoundingClientRect() ?? null))}
+        aria-haspopup="menu"
+        aria-expanded={!!open}
+        className={`${className} ${done && !done.startsWith("Gagal") ? "!border-[#9fd0ae] !bg-[#e6f4ea] !text-[#1f6b3a]" : ""}`}
+      >
+        {done ?? "Bagikan ▾"}
+      </Button>
+      {open &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(null)} />
+            <div
+              role="menu"
+              className="fixed z-50 w-64 overflow-hidden rounded-xl border border-[#e5dfd3] bg-white py-1 text-sm shadow-[0_12px_32px_rgba(31,42,34,0.18)]"
+              style={{
+                top: open.bottom + 6 + 150 > window.innerHeight ? undefined : open.bottom + 6,
+                bottom: open.bottom + 6 + 150 > window.innerHeight ? window.innerHeight - open.top + 6 : undefined,
+                left: Math.max(8, open.right - 256),
+              }}
+            >
+              {SHARE_TARGETS.map((target) => (
+                <button key={target.key} role="menuitem" type="button" onClick={() => shareTo(target)} className="block w-full px-4 py-2.5 text-left hover:bg-[#f6f3ee]">
+                  <span className="font-medium text-[#1f2a22]">{target.label}</span>
+                  <span className="block text-xs text-[#8a8374]">{target.hint}</span>
+                </button>
+              ))}
+              {canShare && (
+                <button role="menuitem" type="button" onClick={shareOther} className="block w-full px-4 py-2.5 text-left hover:bg-[#f6f3ee]">
+                  <span className="font-medium text-[#1f2a22]">Lainnya…</span>
+                  <span className="block text-xs text-[#8a8374]">Menu bagikan perangkat</span>
+                </button>
+              )}
+            </div>
+          </>,
+          document.body,
+        )}
+    </>
   );
 };
 
@@ -685,11 +843,6 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     if (!guest.sentAt) setSent(guest, true);
   };
 
-  const copy = async (text: string, label: string) => {
-    await navigator.clipboard.writeText(text);
-    setNotice({ kind: "success", text: `${label} disalin.` });
-  };
-
   const remove = (guest: Guest) =>
     confirm({
       title: "Hapus tamu?",
@@ -836,11 +989,11 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                   <th className="px-4 py-3 font-medium">Nama</th>
                   <th className="w-44 px-4 py-3 font-medium">WhatsApp</th>
                   <th className="w-40 px-4 py-3 font-medium">Status</th>
-                  <th className="w-[270px] px-4 py-3" />
+                  <th className="w-[212px] px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#efe9de] text-[#1f2a22]">
-                {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "ml-auto w-48"]} />}
+                {!loaded && <SkeletonRows columns={["w-36", "w-28", "w-24", "ml-auto w-44"]} />}
                 {pagination.pageItems.map((guest) => (
                   <tr
                     key={guest.id}
@@ -880,14 +1033,17 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                       </div>
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-2">
-                        <Button variant="whatsapp" onClick={() => sendWhatsApp(guest)} className="px-2.5 py-1.5 text-xs">
+                      <div className="ml-auto grid w-[180px] grid-cols-2 gap-1.5">
+                        <Button variant="whatsapp" onClick={() => sendWhatsApp(guest)} className="px-2 py-1.5 text-xs">
                           Kirim WA
                         </Button>
-                        <Button onClick={() => copy(inviteLink(guest), "Link undangan")} className="px-2.5 py-1.5 text-xs">
-                          Salin Link
-                        </Button>
-                        <Button variant="danger" onClick={() => remove(guest)} className="px-2.5 py-1.5 text-xs">
+                        <CopyButton text={inviteLink(guest)} label="Salin Link" className="px-2 py-1.5 text-xs" />
+                        <ShareMenu
+                          message={() => renderMessage(settings.template, guest)}
+                          onShared={() => !guest.sentAt && setSent(guest, true)}
+                          className="px-2 py-1.5 text-xs"
+                        />
+                        <Button variant="danger" onClick={() => remove(guest)} className="px-2 py-1.5 text-xs">
                           Hapus
                         </Button>
                       </div>
@@ -970,7 +1126,8 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                 <Button variant="whatsapp" onClick={() => sendWhatsApp(previewGuest)}>
                   Kirim ke {previewGuest.name.split(" ")[0]}
                 </Button>
-                <Button onClick={() => copy(renderMessage(settings.template, previewGuest), "Pesan")}>Salin Pesan</Button>
+                <CopyButton text={() => renderMessage(settings.template, previewGuest)} label="Salin Pesan" className="w-[118px]" />
+                <ShareMenu message={() => renderMessage(settings.template, previewGuest)} onShared={() => !previewGuest.sentAt && setSent(previewGuest, true)} className="w-[118px]" />
               </div>
             )}
           </div>
@@ -1095,10 +1252,6 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     });
 
   const deskUrl = `${SITE_URL}/checkin`;
-  const copyDeskUrl = async () => {
-    await navigator.clipboard.writeText(deskUrl);
-    setNotice({ kind: "success", text: "Link halaman penerima tamu disalin." });
-  };
 
   // Arrived guests first, most recent on top; then the rest in list order
   const visible = useMemo(() => {
@@ -1247,7 +1400,7 @@ const CheckinTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
             </p>
             <div className="mt-3 truncate rounded-lg bg-[#faf8f4] px-3 py-2 font-mono text-sm text-[#24412f]">{deskUrl}</div>
             <div className="mt-2 flex gap-2">
-              <Button onClick={copyDeskUrl}>Salin Link</Button>
+              <CopyButton text={deskUrl} label="Salin Link" className="w-[104px]" />
               <a
                 href="/checkin"
                 target="_blank"
