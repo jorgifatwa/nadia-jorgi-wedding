@@ -1,5 +1,5 @@
 import { isAdminRequest, unauthorized } from "@/lib/adminAuth";
-import { addGuests, addPersonIfNameFree, deleteGuest, getGuest, isGroupInvite, listGuests, nameKey, updateGuest, type Guest } from "@/lib/guestsStore";
+import { addGuests, addPersonIfNameFree, deleteGuest, getGuest, isGroupInvite, listGuests, nameKey, resetAllSent, updateGuest, type Guest } from "@/lib/guestsStore";
 import { normalizePhone } from "@/lib/phone";
 import { cleanText } from "@/lib/wishValidation";
 import { withErrors } from "@/lib/apiHandler";
@@ -88,7 +88,10 @@ export const PATCH = withErrors(async (request: Request) => {
     sent?: unknown;
     groupId?: unknown;
     newGroup?: unknown;
+    resetSent?: unknown;
   };
+  // "Reset semua status": every invitation back to "Belum dikirim"
+  if (body.resetSent === "all") return Response.json({ reset: await resetAllSent() });
   if (typeof body.id !== "string") return Response.json({ error: "ID tamu wajib diisi." }, { status: 400 });
 
   const current = await getGuest(body.id);

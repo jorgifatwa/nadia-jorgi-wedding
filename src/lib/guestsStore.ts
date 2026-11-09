@@ -214,6 +214,16 @@ export const updateGuest = async (id: string, changes: GuestChanges): Promise<Gu
   });
 };
 
+// Marks every invitation as not sent yet (e.g. after test sends); returns how many were reset
+export const resetAllSent = async (): Promise<number> => {
+  const sql = await getDb();
+  if (sql) return (await sql`update guests set sent_at = null where sent_at is not null`).count;
+  return updateJson<Guest[], number>(GUESTS, [], (guests) => {
+    const count = guests.filter((guest) => guest.sentAt).length;
+    return { data: guests.map((guest) => (guest.sentAt ? { ...guest, sentAt: null } : guest)), result: count };
+  });
+};
+
 // Checks a guest in once: the first scan sets the time, later scans report the time already set (`already`)
 export const checkInGuest = async (id: string): Promise<{ guest: Guest; already: boolean } | null> => {
   const sql = await getDb();

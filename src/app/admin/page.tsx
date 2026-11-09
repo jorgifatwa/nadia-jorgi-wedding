@@ -838,6 +838,29 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
     }
   };
 
+  const resetAllSentStatus = () =>
+    confirm({
+      title: "Reset semua status terkirim?",
+      message: (
+        <>
+          <span className="font-semibold text-[#1f2a22]">{guests.filter((g) => g.sentAt).length} tamu</span> yang bertanda
+          &ldquo;Terkirim&rdquo; akan kembali menjadi &ldquo;Belum dikirim&rdquo;. Pesan yang sudah terkirim tidak terpengaruh, dan
+          konfirmasi kehadiran tamu tetap tersimpan.
+        </>
+      ),
+      confirmLabel: "Reset Status",
+      busyLabel: "Mereset...",
+      action: async () => {
+        try {
+          const data = await api<{ reset: number }>("/api/admin/guests", { method: "PATCH", body: JSON.stringify({ resetSent: "all" }) });
+          setGuests((prev) => prev.map((g) => (g.sentAt ? { ...g, sentAt: null } : g)));
+          setNotice({ kind: "success", text: `Status terkirim ${data.reset} tamu direset.` });
+        } catch (err) {
+          handleError(err);
+        }
+      },
+    });
+
   const sendWhatsApp = (guest: Guest) => {
     window.open(whatsappUrl(guest.phone, renderMessage(settings.template, guest)), "_blank", "noopener");
     if (!guest.sentAt) setSent(guest, true);
@@ -975,9 +998,12 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
               <option value="unsent">Belum dikirim</option>
               <option value="sent">Sudah dikirim</option>
             </select>
-            <Button onClick={load} disabled={loading} className="ml-auto">
+            <Button variant="danger" onClick={resetAllSentStatus} disabled={!loaded || sentCount === 0} className="ml-auto">
+              Reset Semua Status
+            </Button>
+            <Button onClick={load} disabled={loading}>
               {loading && <Spinner />}
-            {loading ? "Memuat..." : "Muat Ulang"}
+              {loading ? "Memuat..." : "Muat Ulang"}
             </Button>
           </div>
 
@@ -1004,16 +1030,22 @@ const InvitesTab: React.FC<{ onAuthError: () => void }> = ({ onAuthError }) => {
                     <td className="whitespace-nowrap px-4 py-3 text-[#3d463f]">{guest.phone ? formatPhone(guest.phone) : <span className="text-[#b3ab9c]">Pilih saat kirim</span>}</td>
                     <td className="px-4 py-3">
                       {guest.sentAt ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSent(guest, false);
-                          }}
-                          title="Klik untuk tandai belum dikirim"
-                          className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 text-xs font-medium text-[#1f6b3a]"
-                        >
-                          Terkirim · {new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short" }).format(new Date(guest.sentAt))}
-                        </button>
+                        <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="rounded-full bg-[#e6f4ea] px-2.5 py-0.5 text-xs font-medium text-[#1f6b3a]">
+                            Terkirim · {new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short" }).format(new Date(guest.sentAt))}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSent(guest, false);
+                            }}
+                            title="Kembalikan ke Belum dikirim"
+                            className="text-xs font-medium text-[#8a8374] underline-offset-4 hover:text-[#9b1c1c] hover:underline"
+                          >
+                            ↺ Reset
+                          </button>
+                        </span>
                       ) : (
                         <span className="rounded-full bg-[#fbf3e3] px-2.5 py-0.5 text-xs font-medium text-[#8a5a0e]">Belum dikirim</span>
                       )}
